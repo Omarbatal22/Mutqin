@@ -149,7 +149,7 @@ export default async function StudentDashboardPage() {
                   circle.submittedToday 
                     ? "border-emerald-500/20 bg-emerald-50/5 dark:bg-emerald-950/5" 
                     : "border-amber-500/20 bg-amber-50/5 dark:bg-amber-950/5"
-                })}`}>
+                }`}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <div>
@@ -261,7 +261,8 @@ export default async function StudentDashboardPage() {
                     </Badge>
                   </div>
                 </div>
-              ))}
+              )
+            })}
             </div>
           ) : (
             <div className="text-center py-6 text-stone-400 text-xs">
