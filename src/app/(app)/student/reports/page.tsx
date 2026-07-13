@@ -1,19 +1,13 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardContent } from "@/components/ui/card"
 import { History, Calendar, FileText, ArrowRight } from "lucide-react"
+import { ReportSummary } from "@/components/reports/report-summary"
+import type { StructuredReport } from "@/lib/reports/types"
 
-interface ReportItem {
-  id: string
-  report_date: string
-  week_reference: string | null
-  hifz_content: string | null
-  revision_content: string | null
-  mistakes_count: number
-  notes: string | null
+interface ReportItem extends StructuredReport {
   circles: { name: string } | { name: string }[] | null
 }
 
@@ -39,10 +33,22 @@ export default async function StudentReportsHistoryPage() {
       id,
       report_date,
       week_reference,
-      hifz_content,
-      revision_content,
-      mistakes_count,
+      did_hifz,
+      hifz_surah,
+      hifz_from_ayah,
+      hifz_to_ayah,
+      hifz_page,
+      hifz_mistakes,
+      hifz_notes,
+      did_revision,
+      revision_ranges,
+      revision_mistakes,
+      revision_notes,
+      listener_type,
+      listener_user_id,
+      listener_name,
       notes,
+      total_mistakes,
       circles (name)
     `)
     .eq("student_id", user?.id || "")
@@ -109,41 +115,8 @@ export default async function StudentReportsHistoryPage() {
                     </span>
                   </CardHeader>
                   
-                  <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Hifz Column */}
-                      <div className="p-3 bg-stone-50/50 dark:bg-stone-900/20 rounded-xl border border-stone-200/40 dark:border-stone-850/50">
-                        <span className="text-xs text-stone-450 dark:text-stone-500 font-bold block mb-1">الحفظ اليومي</span>
-                        <p className="text-sm font-semibold text-stone-800 dark:text-stone-250 leading-relaxed whitespace-pre-wrap">
-                          {report.hifz_content || "لم يتم تحديد حفظ اليوم"}
-                        </p>
-                      </div>
-
-                      {/* Revision Column */}
-                      <div className="p-3 bg-stone-50/50 dark:bg-stone-900/20 rounded-xl border border-stone-200/40 dark:border-stone-850/50">
-                        <span className="text-xs text-stone-450 dark:text-stone-500 font-bold block mb-1">المراجعة اليومية</span>
-                        <p className="text-sm font-semibold text-stone-800 dark:text-stone-250 leading-relaxed whitespace-pre-wrap">
-                          {report.revision_content || "لم يتم تحديد مراجعة اليوم"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-stone-100 dark:border-stone-900/50 pt-3 text-xs">
-                      {report.notes ? (
-                        <div className="text-stone-500 max-w-lg">
-                          <span className="font-semibold text-stone-600 dark:text-stone-400">ملاحظات: </span>
-                          <span>{report.notes}</span>
-                        </div>
-                      ) : (
-                        <div className="text-stone-400 italic">لا توجد ملاحظات</div>
-                      )}
-                      
-                      <div className="flex justify-end">
-                        <Badge variant={report.mistakes_count > 0 ? "warning" : "success"}>
-                          عدد الأخطاء: {report.mistakes_count}
-                        </Badge>
-                      </div>
-                    </div>
+                  <CardContent className="pt-2">
+                    <ReportSummary report={report} />
                   </CardContent>
                 </Card>
               )

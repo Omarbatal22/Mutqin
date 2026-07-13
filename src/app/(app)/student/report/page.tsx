@@ -10,7 +10,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, Check, Plus, Minus, AlertCircle, Sparkles } from "lucide-react"
+import { NumberStepper } from "@/components/ui/number-stepper"
+import { SurahAyahPicker } from "@/components/quran/surah-ayah-picker"
+import { ReportSummary } from "@/components/reports/report-summary"
+import { nextAyah } from "@/lib/quran"
+import type { AyahRange, ListenerType, StructuredReport } from "@/lib/reports/types"
+import { ArrowRight, Check, Plus, AlertCircle, Sparkles, Settings2 } from "lucide-react"
 
 interface CircleInfo {
   id: string
@@ -18,31 +23,53 @@ interface CircleInfo {
   current_week: number | null
 }
 
+interface Peer {
+  id: string
+  full_name: string
+}
+
+const emptyRange: AyahRange = { surah: 1, fromAyah: 1, toAyah: 1 }
+
 function SubmitReportPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-  
+
   const initialCircleId = searchParams.get("circleId") || ""
 
   const [circles, setCircles] = React.useState<CircleInfo[]>([])
   const [selectedCircleId, setSelectedCircleId] = React.useState(initialCircleId)
-  const [week, setWeek] = React.useState("")
-  const [hifz, setHifz] = React.useState("")
-  const [revision, setRevision] = React.useState("")
-  const [mistakes, setMistakes] = React.useState(0)
+  const [peers, setPeers] = React.useState<Peer[]>([])
+  const [hasSettings, setHasSettings] = React.useState(true)
+
+  // Hifz
+  const [didHifz, setDidHifz] = React.useState(true)
+  const [hifzRange, setHifzRange] = React.useState<AyahRange>(emptyRange)
+  const [hifzMistakes, setHifzMistakes] = React.useState(0)
+  const [hifzNotes, setHifzNotes] = React.useState("")
+  // Revision
+  const [didRevision, setDidRevision] = React.useState(true)
+  const [revisionRanges, setRevisionRanges] = React.useState<AyahRange[]>([emptyRange])
+  const [revisionMistakes, setRevisionMistakes] = React.useState(0)
+  const [revisionNotes, setRevisionNotes] = React.useState("")
+  // Listener
+  const [listenerType, setListenerType] = React.useState<ListenerType>("teacher")
+  const [listenerUserId, setListenerUserId] = React.useState("")
+  const [listenerName, setListenerName] = React.useState("")
+  // General
   const [notes, setNotes] = React.useState("")
-  
+  const [week, setWeek] = React.useState("")
+
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
   const [isEditing, setIsEditing] = React.useState(false)
 
-  // Fetch student's active circles
   React.useEffect(() => {
-    async function loadCirclesAndReport() {
+    async function load() {
       setLoading(true)
+      setError(null)
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
@@ -50,68 +77,136 @@ function SubmitReportPageContent() {
           return
         }
 
-        // Fetch memberships
+        // Student's active circles
         const { data: memberships } = await supabase
           .from("circle_memberships")
-          .select(`
-            circle_id,
-            circles (
-              id,
-              name,
-              current_week
-            )
-          `)
+          .select("circle_id, circles ( id, name, current_week )")
           .eq("user_id", user.id)
           .eq("status", "active")
           .eq("role", "student")
 
-        const fetchedCircles = (memberships || [])
-          .map(m => {
+        const fetched = (memberships || [])
+          .map((m) => {
             const c = Array.isArray(m.circles) ? m.circles[0] : m.circles
             return c as CircleInfo | null
           })
           .filter((c): c is CircleInfo => !!c)
+        setCircles(fetched)
 
-        setCircles(fetchedCircles)
-
-        // Select circle if one is available or query param matches
         let circleId = selectedCircleId
-        if (!circleId && fetchedCircles.length > 0) {
-          circleId = fetchedCircles[0].id
+        if (!circleId && fetched.length > 0) {
+          circleId = fetched[0].id
           setSelectedCircleId(circleId)
         }
+        if (!circleId) {
+          setLoading(false)
+          return
+        }
 
-        if (circleId) {
-          const selected = fetchedCircles.find(c => c.id === circleId)
-          if (selected) {
-            setWeek(selected.current_week ? `الأسبوع ${selected.current_week}` : "")
+        const selected = fetched.find((c) => c.id === circleId)
+        setWeek(selected?.current_week ? `الأسبوع ${selected.current_week}` : "")
+
+        // Peers (other active students in this circle) for the listener picker
+        const { data: peerRows } = await supabase
+          .from("circle_memberships")
+          .select("user_id, profiles:user_id ( id, full_name )")
+          .eq("circle_id", circleId)
+          .eq("status", "active")
+
+        const peerList = (peerRows || [])
+          .map((p) => {
+            const prof = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+            return prof as Peer | null
+          })
+          .filter((p): p is Peer => !!p && p.id !== user.id)
+        setPeers(peerList)
+
+        // Existing report for today?
+        const todayStr = new Date().toISOString().split("T")[0]
+        const { data: existing } = await supabase
+          .from("daily_reports")
+          .select("*")
+          .eq("student_id", user.id)
+          .eq("circle_id", circleId)
+          .eq("report_date", todayStr)
+          .single()
+
+        if (existing) {
+          setDidHifz(existing.did_hifz ?? true)
+          if (existing.hifz_surah) {
+            setHifzRange({
+              surah: existing.hifz_surah,
+              fromAyah: existing.hifz_from_ayah ?? 1,
+              toAyah: existing.hifz_to_ayah ?? 1,
+            })
           }
+          setHifzMistakes(existing.hifz_mistakes ?? 0)
+          setHifzNotes(existing.hifz_notes ?? "")
+          setDidRevision(existing.did_revision ?? true)
+          setRevisionRanges(
+            Array.isArray(existing.revision_ranges) && existing.revision_ranges.length
+              ? existing.revision_ranges
+              : [emptyRange],
+          )
+          setRevisionMistakes(existing.revision_mistakes ?? 0)
+          setRevisionNotes(existing.revision_notes ?? "")
+          setListenerType(existing.listener_type ?? "teacher")
+          setListenerUserId(existing.listener_user_id ?? "")
+          setListenerName(existing.listener_name ?? "")
+          setNotes(existing.notes ?? "")
+          setWeek(existing.week_reference || week)
+          setIsEditing(true)
+          setLoading(false)
+          return
+        }
 
-          // Check if today's report already exists for this circle
-          const todayStr = new Date().toISOString().split("T")[0]
-          const { data: existingReport } = await supabase
-            .from("daily_reports")
-            .select("*")
-            .eq("student_id", user.id)
+        // No report today — prepare suggestions.
+        setIsEditing(false)
+
+        // 1) prefill hifz from the last report in this circle (progress-based)
+        const { data: last } = await supabase
+          .from("daily_reports")
+          .select("hifz_surah, hifz_to_ayah, listener_type, listener_user_id, listener_name")
+          .eq("student_id", user.id)
+          .eq("circle_id", circleId)
+          .eq("did_hifz", true)
+          .order("report_date", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        let suggested: AyahRange | null = null
+        if (last?.hifz_surah && last?.hifz_to_ayah) {
+          const nxt = nextAyah(last.hifz_surah, last.hifz_to_ayah)
+          if (nxt) suggested = { surah: nxt.surah, fromAyah: nxt.ayah, toAyah: nxt.ayah }
+          // remember who they recited to
+          if (last.listener_type) setListenerType(last.listener_type)
+          if (last.listener_user_id) setListenerUserId(last.listener_user_id)
+          if (last.listener_name) setListenerName(last.listener_name)
+        }
+
+        // 2) fall back to memorization_settings start position
+        if (!suggested) {
+          const { data: settings } = await supabase
+            .from("memorization_settings")
+            .select("start_surah, start_ayah")
+            .eq("user_id", user.id)
             .eq("circle_id", circleId)
-            .eq("report_date", todayStr)
-            .single()
+            .maybeSingle()
 
-          if (existingReport) {
-            setWeek(existingReport.week_reference || "")
-            setHifz(existingReport.hifz_content || "")
-            setRevision(existingReport.revision_content || "")
-            setMistakes(existingReport.mistakes_count || 0)
-            setNotes(existingReport.notes || "")
-            setIsEditing(true)
+          if (settings) {
+            suggested = {
+              surah: settings.start_surah ?? 1,
+              fromAyah: settings.start_ayah ?? 1,
+              toAyah: settings.start_ayah ?? 1,
+            }
           } else {
-            // Reset fields for new submission
-            setHifz("")
-            setRevision("")
-            setMistakes(0)
-            setNotes("")
-            setIsEditing(false)
+            setHasSettings(false)
           }
+        }
+
+        if (suggested) {
+          setHifzRange(suggested)
+          setRevisionRanges([{ ...suggested }])
         }
       } catch {
         setError("حدث خطأ أثناء تحميل البيانات")
@@ -120,9 +215,16 @@ function SubmitReportPageContent() {
       }
     }
 
-    loadCirclesAndReport()
+    load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCircleId, initialCircleId])
+
+  const updateRevisionRange = (index: number, range: AyahRange) => {
+    setRevisionRanges((prev) => prev.map((r, i) => (i === index ? range : r)))
+  }
+  const addRevisionRange = () => setRevisionRanges((prev) => [...prev, { ...emptyRange }])
+  const removeRevisionRange = (index: number) =>
+    setRevisionRanges((prev) => prev.filter((_, i) => i !== index))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,7 +232,6 @@ function SubmitReportPageContent() {
       setError("يرجى اختيار الحلقة أولاً")
       return
     }
-
     setSubmitting(true)
     setError(null)
 
@@ -143,34 +244,78 @@ function SubmitReportPageContent() {
 
       const todayStr = new Date().toISOString().split("T")[0]
 
+      const resolvedListenerName =
+        listenerType === "peer"
+          ? peers.find((p) => p.id === listenerUserId)?.full_name ?? null
+          : listenerType === "other"
+            ? listenerName || null
+            : null
+
       const reportData = {
         circle_id: selectedCircleId,
         student_id: user.id,
         report_date: todayStr,
         week_reference: week,
-        hifz_content: hifz,
-        revision_content: revision,
-        mistakes_count: mistakes,
-        notes: notes,
+        did_hifz: didHifz,
+        hifz_surah: didHifz ? hifzRange.surah : null,
+        hifz_from_ayah: didHifz ? hifzRange.fromAyah : null,
+        hifz_to_ayah: didHifz ? hifzRange.toAyah : null,
+        hifz_mistakes: didHifz ? hifzMistakes : 0,
+        hifz_notes: didHifz ? hifzNotes || null : null,
+        did_revision: didRevision,
+        revision_ranges: didRevision ? revisionRanges : [],
+        revision_mistakes: didRevision ? revisionMistakes : 0,
+        revision_notes: didRevision ? revisionNotes || null : null,
+        listener_type: listenerType,
+        listener_user_id: listenerType === "peer" ? listenerUserId || null : null,
+        listener_name: resolvedListenerName,
+        notes: notes || null,
       }
 
-      // Upsert report (since student can edit same day report)
       const { error: submitError } = await supabase
         .from("daily_reports")
         .upsert(reportData, { onConflict: "circle_id,student_id,report_date" })
 
       if (submitError) throw submitError
-
       setSuccess(true)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "حدث خطأ أثناء إرسال التقرير"
-      setError(message)
+      setError(err instanceof Error ? err.message : "حدث خطأ أثناء إرسال التقرير")
     } finally {
       setSubmitting(false)
     }
   }
 
-  const todayFormatted = new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })
+  const todayFormatted = new Date().toLocaleDateString("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  })
+
+  // Build a StructuredReport for the success summary
+  const summaryReport: StructuredReport = {
+    report_date: new Date().toISOString().split("T")[0],
+    did_hifz: didHifz,
+    hifz_surah: didHifz ? hifzRange.surah : null,
+    hifz_from_ayah: didHifz ? hifzRange.fromAyah : null,
+    hifz_to_ayah: didHifz ? hifzRange.toAyah : null,
+    hifz_page: null,
+    hifz_mistakes: hifzMistakes,
+    hifz_notes: hifzNotes || null,
+    did_revision: didRevision,
+    revision_ranges: didRevision ? revisionRanges : [],
+    revision_mistakes: revisionMistakes,
+    revision_notes: revisionNotes || null,
+    listener_type: listenerType,
+    listener_user_id: listenerType === "peer" ? listenerUserId || null : null,
+    listener_name:
+      listenerType === "peer"
+        ? peers.find((p) => p.id === listenerUserId)?.full_name ?? null
+        : listenerType === "other"
+          ? listenerName || null
+          : null,
+    notes: notes || null,
+    total_mistakes: hifzMistakes + revisionMistakes,
+  }
 
   if (loading) {
     return (
@@ -178,7 +323,7 @@ function SubmitReportPageContent() {
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="animate-pulse flex flex-col items-center gap-2 text-stone-500">
             <Sparkles className="w-8 h-8 text-primary-650 animate-spin" />
-            <span>جاري تحميل نموذج التقرير...</span>
+            <span>جاري تجهيز تقرير اليوم...</span>
           </div>
         </div>
       </DashboardShell>
@@ -188,36 +333,37 @@ function SubmitReportPageContent() {
   return (
     <DashboardShell role="student">
       <div className="max-w-2xl mx-auto w-full">
-        {/* Back Link */}
         <Link href="/student/dashboard" className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6 font-semibold">
           <ArrowRight className="w-4 h-4" />
           العودة للوحة الطالب
         </Link>
 
         {success ? (
-          <Card className="border-emerald-250 text-center shadow-lg">
-            <CardHeader>
+          <Card className="border-emerald-250 shadow-lg">
+            <CardHeader className="text-center">
               <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-200/50">
                 <Check className="w-6 h-6" />
               </div>
               <CardTitle className="text-xl font-bold text-emerald-800 dark:text-emerald-400">
-                {isEditing ? "تم تحديث التقرير بنجاح!" : "تم تسجيل تقرير اليوم!"}
+                {isEditing ? "تم تحديث تقرير اليوم!" : "تم تسجيل تقرير اليوم ✓"}
               </CardTitle>
-              <CardDescription>
-                تم تسجيل إنجازك لليوم بنجاح، وسيظهر مباشرة لمعلم حلقتك في لوحة المتابعة.
-              </CardDescription>
+              <CardDescription>سيظهر تقريرك مباشرة لمعلم حلقتك في لوحة المتابعة.</CardDescription>
             </CardHeader>
-            <CardContent className="mt-2">
+            <CardContent className="flex flex-col gap-5 mt-2">
+              <ReportSummary report={summaryReport} />
               <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-grow"
+                  onClick={() => {
+                    setSuccess(false)
+                    setIsEditing(true)
+                  }}
+                >
+                  تعديل التقرير
+                </Button>
                 <Link href="/student/dashboard" className="flex-grow">
-                  <Button variant="secondary" className="w-full">
-                    لوحة التحكم
-                  </Button>
-                </Link>
-                <Link href="/student/reports" className="flex-grow">
-                  <Button variant="primary" className="w-full">
-                    سجل تقاريري
-                  </Button>
+                  <Button variant="primary" className="w-full">العودة للرئيسية</Button>
                 </Link>
               </div>
             </CardContent>
@@ -227,12 +373,15 @@ function SubmitReportPageContent() {
             <CardHeader className="pb-3 border-b border-stone-100 dark:border-stone-900 mb-5">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                 <div>
-                  <CardTitle className="text-xl font-bold">{isEditing ? "تعديل تقرير اليوم" : "إرسال تقرير اليوم"}</CardTitle>
-                  <CardDescription className="text-xs">{todayFormatted}</CardDescription>
+                  <CardTitle className="text-xl font-bold">
+                    {isEditing ? "تعديل تقرير اليوم" : "تقرير اليوم"}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {todayFormatted}
+                    {week ? ` — ${week}` : ""}
+                  </CardDescription>
                 </div>
-                {isEditing && (
-                  <Badge variant="success">تقرير مسجل مسبقاً</Badge>
-                )}
+                {isEditing && <Badge variant="success">تقرير مسجل مسبقاً</Badge>}
               </div>
             </CardHeader>
 
@@ -246,23 +395,33 @@ function SubmitReportPageContent() {
                   </Link>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                   {error && (
-                    <div className="p-3.5 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 dark:text-red-400 rounded-xl border border-red-200/50 dark:border-red-900/30">
+                    <div className="p-3.5 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 dark:text-red-400 rounded-xl border border-red-200/50">
                       {error}
                     </div>
                   )}
 
-                  {/* Circle Selection */}
+                  {!hasSettings && !isEditing && (
+                    <Link
+                      href={`/student/setup?circleId=${selectedCircleId}`}
+                      className="flex items-center gap-2 p-3 rounded-xl border border-primary-200/50 bg-primary-50/50 dark:bg-primary-950/10 text-primary-700 dark:text-primary-400 text-xs font-semibold"
+                    >
+                      <Settings2 className="w-4 h-4" />
+                      أعدّ نظام حفظك ليجهّز النظام تقاريرك تلقائياً.
+                    </Link>
+                  )}
+
+                  {/* Circle selection */}
                   {circles.length > 1 ? (
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-medium text-stone-700 dark:text-stone-300">الحلقة المستهدفة</label>
                       <select
                         value={selectedCircleId}
                         onChange={(e) => setSelectedCircleId(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                        className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        {circles.map(c => (
+                        {circles.map((c) => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>
@@ -274,76 +433,137 @@ function SubmitReportPageContent() {
                     </div>
                   )}
 
-                  {/* Week Reference */}
-                  <Input
-                    label="رقم الأسبوع أو المرجع"
-                    placeholder="مثال: الأسبوع الأول، جزء عم"
-                    value={week}
-                    onChange={(e) => setWeek(e.target.value)}
-                    required
-                  />
-
-                  {/* Hifz Input */}
-                  <Textarea
-                    label="الحفظ اليومي"
-                    placeholder="مثال: سورة البقرة من آية 1 إلى آية 15"
-                    value={hifz}
-                    onChange={(e) => setHifz(e.target.value)}
-                    required
-                    rows={3}
-                  />
-
-                  {/* Revision Input */}
-                  <Textarea
-                    label="المراجعة اليومية"
-                    placeholder="مثال: مراجعة جزء عم كاملاً، أو سورة آل عمران"
-                    value={revision}
-                    onChange={(e) => setRevision(e.target.value)}
-                    required
-                    rows={3}
-                  />
-
-                  {/* Mistakes Counter (Premium touch) */}
-                  <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-900/30 border border-stone-250/60 dark:border-stone-850 rounded-2xl">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-stone-800 dark:text-stone-200">عدد الأخطاء اليومية</span>
-                      <span className="text-xs text-stone-450 dark:text-stone-500">الأخطاء المسجلة أثناء التسميع</span>
+                  {/* ① Hifz section */}
+                  <section className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-stone-800 dark:text-stone-200">① الحفظ</h3>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setMistakes(prev => Math.max(0, prev - 1))}
-                        className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-50 rounded-xl flex items-center justify-center text-stone-600 dark:text-stone-300 font-bold active:scale-90 transition-all"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-8 text-center font-extrabold text-lg text-stone-900 dark:text-stone-100 font-mono">
-                        {mistakes}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setMistakes(prev => prev + 1)}
-                        className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-stone-50 rounded-xl flex items-center justify-center text-stone-600 dark:text-stone-300 font-bold active:scale-90 transition-all"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                    <div className="flex flex-col gap-2">
+                      <span className="text-sm text-stone-600 dark:text-stone-400">هل سمّعت حفظاً جديداً اليوم؟</span>
+                      <YesNo value={didHifz} onChange={setDidHifz} />
                     </div>
-                  </div>
 
-                  {/* Optional Notes */}
-                  <Textarea
-                    label="ملاحظات إضافية (اختياري)"
-                    placeholder="تنبيهات للمعلم، أو أسباب للتقصير..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                  />
+                    {didHifz && (
+                      <div className="flex flex-col gap-4">
+                        <SurahAyahPicker value={hifzRange} onChange={setHifzRange} />
+                        <NumberStepper
+                          label="عدد أخطاء الحفظ"
+                          hint="الأخطاء المسجلة أثناء التسميع"
+                          value={hifzMistakes}
+                          onChange={setHifzMistakes}
+                        />
+                        <Textarea
+                          label="ملاحظات على الحفظ (اختياري)"
+                          placeholder="مثال: احتجت لإعادة الآيات من 15 إلى 18"
+                          value={hifzNotes}
+                          onChange={(e) => setHifzNotes(e.target.value)}
+                          rows={2}
+                        />
+                      </div>
+                    )}
+                  </section>
+
+                  {/* ② Revision section */}
+                  <section className="flex flex-col gap-4 border-t border-stone-100 dark:border-stone-900 pt-5">
+                    <h3 className="font-bold text-stone-800 dark:text-stone-200">② المراجعة</h3>
+                    <div className="flex flex-col gap-2">
+                      <span className="text-sm text-stone-600 dark:text-stone-400">هل سمّعت مراجعة اليوم؟</span>
+                      <YesNo value={didRevision} onChange={setDidRevision} />
+                    </div>
+
+                    {didRevision && (
+                      <div className="flex flex-col gap-4">
+                        {revisionRanges.map((r, i) => (
+                          <SurahAyahPicker
+                            key={i}
+                            value={r}
+                            onChange={(range) => updateRevisionRange(i, range)}
+                            onRemove={revisionRanges.length > 1 ? () => removeRevisionRange(i) : undefined}
+                          />
+                        ))}
+                        <button
+                          type="button"
+                          onClick={addRevisionRange}
+                          className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-semibold self-start"
+                        >
+                          <Plus className="w-4 h-4" />
+                          إضافة جزء مراجعة آخر
+                        </button>
+                        <NumberStepper
+                          label="عدد أخطاء المراجعة"
+                          value={revisionMistakes}
+                          onChange={setRevisionMistakes}
+                        />
+                        <Textarea
+                          label="ملاحظات المراجعة (اختياري)"
+                          value={revisionNotes}
+                          onChange={(e) => setRevisionNotes(e.target.value)}
+                          rows={2}
+                        />
+                      </div>
+                    )}
+                  </section>
+
+                  {/* ③ Listener */}
+                  <section className="flex flex-col gap-3 border-t border-stone-100 dark:border-stone-900 pt-5">
+                    <h3 className="font-bold text-stone-800 dark:text-stone-200">③ سمّعت على</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { v: "teacher", l: "معلم الحلقة" },
+                        { v: "peer", l: "طالب من الحلقة" },
+                        { v: "other", l: "شخص آخر" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() => setListenerType(opt.v)}
+                          className={`p-3 rounded-xl border-2 text-xs font-semibold transition-all ${
+                            listenerType === opt.v
+                              ? "border-primary-600 bg-primary-50/50 dark:bg-primary-950/10 text-primary-700 dark:text-primary-400"
+                              : "border-stone-200 dark:border-stone-850 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900"
+                          }`}
+                        >
+                          {opt.l}
+                        </button>
+                      ))}
+                    </div>
+
+                    {listenerType === "peer" && (
+                      <select
+                        value={listenerUserId}
+                        onChange={(e) => setListenerUserId(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="">اختر الطالب...</option>
+                        {peers.map((p) => (
+                          <option key={p.id} value={p.id}>{p.full_name}</option>
+                        ))}
+                      </select>
+                    )}
+                    {listenerType === "other" && (
+                      <Input
+                        placeholder="اسم المستمع (اختياري)"
+                        value={listenerName}
+                        onChange={(e) => setListenerName(e.target.value)}
+                      />
+                    )}
+                  </section>
+
+                  {/* ④ General notes */}
+                  <section className="flex flex-col gap-3 border-t border-stone-100 dark:border-stone-900 pt-5">
+                    <h3 className="font-bold text-stone-800 dark:text-stone-200">④ ملاحظات عامة</h3>
+                    <Textarea
+                      placeholder="اكتب ملاحظة إن وجدت..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
+                    />
+                  </section>
 
                   <Button type="submit" className="w-full mt-2" disabled={submitting}>
-                    {submitting 
-                      ? (isEditing ? "جاري التحديث..." : "جاري الإرسال...") 
-                      : (isEditing ? "تحديث التقرير اليومي" : "إرسال التقرير اليومي")
-                    }
+                    {submitting
+                      ? isEditing ? "جاري التحديث..." : "جاري الإرسال..."
+                      : isEditing ? "تحديث تقرير اليوم" : "تسجيل تقرير اليوم"}
                   </Button>
                 </form>
               )}
@@ -352,6 +572,35 @@ function SubmitReportPageContent() {
         )}
       </div>
     </DashboardShell>
+  )
+}
+
+function YesNo({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={`p-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+          value
+            ? "border-primary-600 bg-primary-50/50 dark:bg-primary-950/10 text-primary-700 dark:text-primary-400"
+            : "border-stone-200 dark:border-stone-850 text-stone-600 dark:text-stone-400"
+        }`}
+      >
+        نعم
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`p-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+          !value
+            ? "border-primary-600 bg-primary-50/50 dark:bg-primary-950/10 text-primary-700 dark:text-primary-400"
+            : "border-stone-200 dark:border-stone-850 text-stone-600 dark:text-stone-400"
+        }`}
+      >
+        لا
+      </button>
+    </div>
   )
 }
 

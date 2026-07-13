@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
 import { CircleSwitcher } from "@/components/circle-switcher"
+import { ReportSummary } from "@/components/reports/report-summary"
+import type { StructuredReport } from "@/lib/reports/types"
 import { 
   Users, 
   CheckCircle2, 
@@ -299,14 +301,10 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
 
                         {/* Report preview or actions */}
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs">
-                          {student.submitted ? (
+                          {student.submitted && student.reportDetails ? (
                             <div className="bg-stone-50 dark:bg-stone-900/50 px-4 py-3 rounded-xl border border-stone-200/50 dark:border-stone-850 text-stone-500 max-w-sm">
                               <span className="font-semibold text-stone-700 dark:text-stone-300 block mb-0.5">تقرير اليوم:</span>
-                              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                                <div><span className="font-medium text-stone-600">حفظ:</span> {student.reportDetails?.hifz_content}</div>
-                                <div><span className="font-medium text-stone-600">مراجعة:</span> {student.reportDetails?.revision_content}</div>
-                                <div><span className="font-medium text-stone-600 text-red-650">أخطاء:</span> {student.reportDetails?.mistakes_count}</div>
-                              </div>
+                              <ReportSummary report={student.reportDetails as unknown as StructuredReport} variant="compact" />
                             </div>
                           ) : (
                             <span className="text-stone-400 italic">لا يوجد تقرير لليوم</span>

@@ -2,8 +2,9 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardHeader, CardContent } from "@/components/ui/card"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Calendar, FileText } from "lucide-react"
+import { ReportSummary } from "@/components/reports/report-summary"
+import type { StructuredReport } from "@/lib/reports/types"
 
 export const dynamic = 'force-dynamic'
 
@@ -40,14 +41,34 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
   // Fetch all reports submitted by this student in this circle
   const { data: reports } = await supabase
     .from("daily_reports")
-    .select("*")
+    .select(`
+      id,
+      report_date,
+      week_reference,
+      did_hifz,
+      hifz_surah,
+      hifz_from_ayah,
+      hifz_to_ayah,
+      hifz_page,
+      hifz_mistakes,
+      hifz_notes,
+      did_revision,
+      revision_ranges,
+      revision_mistakes,
+      revision_notes,
+      listener_type,
+      listener_user_id,
+      listener_name,
+      notes,
+      total_mistakes
+    `)
     .eq("circle_id", circleId)
     .eq("student_id", studentId)
     .order("report_date", { ascending: false })
 
   // Calculate stats for this student
   const totalReports = reports?.length || 0
-  const totalMistakes = reports?.reduce((acc, curr) => acc + (curr.mistakes_count || 0), 0) || 0
+  const totalMistakes = reports?.reduce((acc, curr) => acc + (curr.total_mistakes || 0), 0) || 0
   const averageMistakes = totalReports > 0 ? (totalMistakes / totalReports).toFixed(1) : 0
 
   const joinDateFormatted = membership?.joined_at 
@@ -82,15 +103,15 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 min-w-[280px]">
             <Card className="p-4 flex flex-col justify-center items-center text-center">
-              <span className="text-xs text-stone-400 font-medium block">التقارير</span>
+              <span className="text-xs text-stone-450 font-medium block">التقارير</span>
               <span className="text-2xl font-extrabold font-mono text-stone-900 dark:text-stone-100 mt-1">{totalReports}</span>
             </Card>
             <Card className="p-4 flex flex-col justify-center items-center text-center">
-              <span className="text-xs text-stone-400 font-medium block">مجموع الأخطاء</span>
+              <span className="text-xs text-stone-450 font-medium block">مجموع الأخطاء</span>
               <span className="text-2xl font-extrabold font-mono text-amber-600 mt-1">{totalMistakes}</span>
             </Card>
             <Card className="p-4 col-span-2 md:col-span-1 flex flex-col justify-center items-center text-center">
-              <span className="text-xs text-stone-400 font-medium block">معدل الأخطاء/اليوم</span>
+              <span className="text-xs text-stone-450 font-medium block">معدل الأخطاء/اليوم</span>
               <span className="text-2xl font-extrabold font-mono text-primary-650 mt-1">{averageMistakes}</span>
             </Card>
           </div>
@@ -128,41 +149,8 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
                     </div>
                   </CardHeader>
 
-                  <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Hifz Column */}
-                      <div className="p-3 bg-stone-50/50 dark:bg-stone-900/20 rounded-xl border border-stone-200/40 dark:border-stone-850/50">
-                        <span className="text-xs text-stone-450 dark:text-stone-500 font-bold block mb-1">الحفظ اليومي</span>
-                        <p className="text-sm font-semibold text-stone-800 dark:text-stone-250 leading-relaxed whitespace-pre-wrap">
-                          {report.hifz_content || "لم يكتب حفظ اليوم"}
-                        </p>
-                      </div>
-
-                      {/* Revision Column */}
-                      <div className="p-3 bg-stone-50/50 dark:bg-stone-900/20 rounded-xl border border-stone-200/40 dark:border-stone-850/50">
-                        <span className="text-xs text-stone-450 dark:text-stone-500 font-bold block mb-1">المراجعة اليومية</span>
-                        <p className="text-sm font-semibold text-stone-800 dark:text-stone-250 leading-relaxed whitespace-pre-wrap">
-                          {report.revision_content || "لم يكتب مراجعة اليوم"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-stone-100 dark:border-stone-900/50 pt-3 text-xs">
-                      {report.notes ? (
-                        <div className="text-stone-500 max-w-lg">
-                          <span className="font-semibold text-stone-600 dark:text-stone-450">ملاحظات الطالب: </span>
-                          <span>{report.notes}</span>
-                        </div>
-                      ) : (
-                        <div className="text-stone-400 italic">لا توجد ملاحظات من الطالب</div>
-                      )}
-
-                      <div className="flex justify-end">
-                        <Badge variant={report.mistakes_count > 0 ? "warning" : "success"}>
-                          عدد الأخطاء: {report.mistakes_count}
-                        </Badge>
-                      </div>
-                    </div>
+                  <CardContent className="pt-2">
+                    <ReportSummary report={report as unknown as StructuredReport} />
                   </CardContent>
                 </Card>
               )

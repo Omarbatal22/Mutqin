@@ -4,11 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
-import { 
-  BookOpen, 
-  Plus, 
-  Calendar 
-} from "lucide-react"
+import { BookOpen, Plus, Calendar } from "lucide-react"
+import { ReportSummary } from "@/components/reports/report-summary"
+import type { StructuredReport } from "@/lib/reports/types"
 
 interface DBMembershipCircle {
   circle_id: string
@@ -25,12 +23,7 @@ interface DBMembershipCircle {
   }[] | null
 }
 
-interface RecentReport {
-  id: string
-  report_date: string
-  hifz_content: string | null
-  revision_content: string | null
-  mistakes_count: number
+interface RecentReport extends StructuredReport {
   circles: { name: string } | { name: string }[] | null
 }
 
@@ -85,7 +78,7 @@ export default async function StudentDashboardPage() {
     return {
       ...circle,
       submittedToday: !!report,
-      reportDetails: report || null
+      reportDetails: report ? (report as unknown as StructuredReport) : null
     }
   })
 
@@ -95,9 +88,22 @@ export default async function StudentDashboardPage() {
     .select(`
       id,
       report_date,
-      hifz_content,
-      revision_content,
-      mistakes_count,
+      did_hifz,
+      hifz_surah,
+      hifz_from_ayah,
+      hifz_to_ayah,
+      hifz_page,
+      hifz_mistakes,
+      hifz_notes,
+      did_revision,
+      revision_ranges,
+      revision_mistakes,
+      revision_notes,
+      listener_type,
+      listener_user_id,
+      listener_name,
+      notes,
+      total_mistakes,
       circles (name)
     `)
     .eq("student_id", user?.id || "")
@@ -154,7 +160,9 @@ export default async function StudentDashboardPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-base font-bold">{circle.name}</CardTitle>
-                        <CardDescription className="text-xs">المعلم: {circle.description || "معلم الحلقة"}</CardDescription>
+                        {circle.description && (
+                          <CardDescription className="text-xs">{circle.description}</CardDescription>
+                        )}
                       </div>
                       <Badge variant={circle.submittedToday ? "success" : "warning"}>
                         {circle.submittedToday ? "تم التسليم" : "لم يُسلم بعد"}
@@ -163,28 +171,9 @@ export default async function StudentDashboardPage() {
                   </CardHeader>
                   
                   <CardContent className="pt-2 flex flex-col gap-4">
-                    {circle.submittedToday ? (
-                      <div className="flex flex-col gap-3 bg-white dark:bg-[#252523] p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/20 text-xs">
-                        <div className="grid grid-cols-3 gap-2 text-center text-stone-500 dark:text-stone-400">
-                          <div>
-                            <span className="block font-bold text-stone-800 dark:text-stone-200">{circle.reportDetails?.hifz_content || "—"}</span>
-                            <span>الحفظ</span>
-                          </div>
-                          <div className="border-x border-stone-100 dark:border-stone-800">
-                            <span className="block font-bold text-stone-800 dark:text-stone-200">{circle.reportDetails?.revision_content || "—"}</span>
-                            <span>المراجعة</span>
-                          </div>
-                          <div>
-                            <span className="block font-bold text-red-650 dark:text-red-400">{circle.reportDetails?.mistakes_count ?? 0}</span>
-                            <span>الأخطاء</span>
-                          </div>
-                        </div>
-                        {circle.reportDetails?.notes && (
-                          <div className="border-t border-stone-50 dark:border-stone-800 pt-2 text-stone-500">
-                            <span className="font-semibold">ملاحظات:</span> {circle.reportDetails.notes}
-                          </div>
-                        )}
-                        
+                    {circle.submittedToday && circle.reportDetails ? (
+                      <div className="flex flex-col gap-3 bg-white dark:bg-[#252523] p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/20">
+                        <ReportSummary report={circle.reportDetails} variant="compact" />
                         <div className="flex gap-2 mt-2">
                           <Link href={`/student/report?circleId=${circle.id}`} className="w-full">
                             <Button size="sm" variant="outline" className="w-full">تعديل التقرير</Button>
@@ -223,46 +212,31 @@ export default async function StudentDashboardPage() {
           </div>
 
           {recentReports && recentReports.length > 0 ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               {recentReports.map((report) => {
+                const reportDate = new Date(report.report_date)
+                const dayName = reportDate.toLocaleDateString("ar-EG", { weekday: "long" })
+                const dateFormatted = reportDate.toLocaleDateString("ar-EG", { day: "numeric", month: "long" })
                 const circleName = Array.isArray(report.circles)
                   ? report.circles[0]?.name
                   : report.circles?.name
 
                 return (
-                  <div 
-                    key={report.id} 
-                    className="bg-white dark:bg-[#1c1c1a] border border-stone-200 dark:border-stone-850 p-4.5 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 text-xs hover:shadow-xs transition-all"
-                  >
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-stone-900 dark:text-stone-150">
-                          {circleName || "حلقة غير معروفة"}
-                        </span>
-                        <span className="text-[10px] text-stone-400 dark:text-stone-500 font-mono">
-                          {new Date(report.report_date).toLocaleDateString("ar-EG", { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-stone-500">
-                      <div>
-                        <span className="font-medium text-stone-700 dark:text-stone-300">الحفظ: </span>
-                        <span>{report.hifz_content || "لا يوجد"}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-stone-700 dark:text-stone-300">المراجعة: </span>
-                        <span>{report.revision_content || "لا يوجد"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 border-stone-50 dark:border-stone-900 pt-2.5 sm:pt-0">
-                    <Badge variant={report.mistakes_count > 0 ? "warning" : "success"}>
-                      عدد الأخطاء: {report.mistakes_count}
-                    </Badge>
-                  </div>
-                </div>
-              )
-            })}
+                  <Card key={report.id} className="hover:shadow-xs transition-all">
+                    <CardHeader className="pb-1.5 pt-3.5 px-4 flex flex-row items-center justify-between border-b border-stone-50 dark:border-stone-900/50">
+                      <span className="font-bold text-stone-700 dark:text-stone-300 text-xs">
+                        {dayName}، {dateFormatted}
+                      </span>
+                      <span className="text-[11px] font-bold text-primary-650 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/20 px-2 py-0.5 rounded-full border border-primary-200/30">
+                        {circleName || "حلقة غير معروفة"}
+                      </span>
+                    </CardHeader>
+                    <CardContent className="pt-2 pb-3.5 px-4">
+                      <ReportSummary report={report} variant="compact" />
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-6 text-stone-400 text-xs">
