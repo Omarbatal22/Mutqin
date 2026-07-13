@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { BookOpen, UserCheck, AlertCircle } from "lucide-react"
 
+export const dynamic = 'force-dynamic'
+
 interface InvitePageProps {
   params: Promise<{ code: string }>
 }

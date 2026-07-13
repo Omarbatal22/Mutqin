@@ -17,7 +17,7 @@ interface ReportItem {
   circles: { name: string } | { name: string }[] | null
 }
 
-export const revalidate = 0 // Disable cache for history reports
+export const dynamic = 'force-dynamic'
 
 export default async function StudentReportsHistoryPage() {
   const supabase = await createClient()

@@ -26,7 +26,7 @@ interface DashboardMembership {
   profiles: DashboardProfile | DashboardProfile[] | null
 }
 
-export const revalidate = 0 // Disable cache for real-time dashboard data
+export const dynamic = 'force-dynamic'
 
 interface TeacherDashboardProps {
   searchParams: Promise<{ circleId?: string; filter?: string }>

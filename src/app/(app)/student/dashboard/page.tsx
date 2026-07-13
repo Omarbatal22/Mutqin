@@ -34,7 +34,7 @@ interface RecentReport {
   circles: { name: string } | { name: string }[] | null
 }
 
-export const revalidate = 0 // Always fetch fresh dashboard data
+export const dynamic = 'force-dynamic'
 
 export default async function StudentDashboardPage() {
   const supabase = await createClient()

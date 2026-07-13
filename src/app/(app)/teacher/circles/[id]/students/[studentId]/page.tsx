@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Calendar, FileText } from "lucide-react"
 
-export const revalidate = 0 // Disable cache for student reports data
+export const dynamic = 'force-dynamic'
 
 interface StudentDetailsPageProps {
   params: Promise<{ id: string; studentId: string }>

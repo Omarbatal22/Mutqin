@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Plus, Users, QrCode, Layers } from "lucide-react"
 
-export const revalidate = 0 // Disable cache for real-time dashboard data
+export const dynamic = 'force-dynamic'
 
 export default async function TeacherCirclesPage() {
   const supabase = await createClient()

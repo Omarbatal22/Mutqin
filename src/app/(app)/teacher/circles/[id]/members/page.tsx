@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { ArrowRight, QrCode, Copy, Trash2, Users, AlertCircle } from "lucide-react"
 
-export const revalidate = 0 // Disable cache for real-time member operations
+export const dynamic = 'force-dynamic'
 
 interface DBProfile {
   id: string
