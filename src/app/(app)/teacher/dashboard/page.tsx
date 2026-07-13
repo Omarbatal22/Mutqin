@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
+import { CircleSwitcher } from "@/components/circle-switcher"
 import { 
   Users, 
   CheckCircle2, 
@@ -141,18 +142,7 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
             {/* Circle switcher */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-stone-500 dark:text-stone-400 font-semibold whitespace-nowrap">الحلقة النشطة:</span>
-              <select
-                value={activeCircleId || ""}
-                onChange={(e) => {
-                  // Direct navigation to refresh parameters
-                  window.location.href = `/teacher/dashboard?circleId=${e.target.value}`
-                }}
-                className="px-4 py-2 rounded-xl border border-stone-250 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                {circles.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <CircleSwitcher circles={circles || []} activeCircleId={activeCircleId || ""} />
             </div>
             
             <div className="flex gap-2">

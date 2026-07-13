@@ -27,18 +27,26 @@ function LoginPageContent() {
     setError(null)
 
     try {
+      console.log("Attempting login for email:", email)
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (signInError) {
-        setError(signInError.message === "Invalid login credentials" ? "البريد الإلكتروني أو كلمة المرور غير صحيحة" : signInError.message)
+        console.error("Login failed with signInError:", signInError)
+        console.error("signInError message:", signInError.message)
+        const errorMsg = typeof signInError.message === 'string' 
+          ? (signInError.message === "Invalid login credentials" ? "البريد الإلكتروني أو كلمة المرور غير صحيحة" : signInError.message)
+          : JSON.stringify(signInError)
+        setError(errorMsg)
       } else {
+        console.log("Login successful, redirecting to:", redirectTo)
         router.push(redirectTo)
         router.refresh()
       }
-    } catch {
+    } catch (err) {
+      console.error("Login catch block error:", err)
       setError("حدث خطأ ما، يرجى المحاولة مرة أخرى")
     } finally {
       setLoading(false)
