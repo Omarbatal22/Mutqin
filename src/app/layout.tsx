@@ -29,8 +29,12 @@ export default function RootLayout({
       lang="ar"
       dir="rtl"
       className={`${arabicFont.variable} ${interFont.variable} antialiased`}
+      suppressHydrationWarning
     >
-      <body className="font-sans min-h-screen bg-stone-50/50 dark:bg-[#121212] text-stone-900 dark:text-stone-100 flex flex-col">
+      <body
+        className="font-sans min-h-screen bg-stone-50/50 dark:bg-[#121212] text-stone-900 dark:text-stone-100 flex flex-col"
+        suppressHydrationWarning
+      >
         {children}
       </body>
     </html>
