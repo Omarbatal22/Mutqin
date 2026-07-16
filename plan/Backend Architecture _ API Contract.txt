@@ -1,0 +1,654 @@
+Backend Architecture & API Contract
+Smart Quran Daily Reporting Platform — MVP
+1. Backend Architecture Goals
+الـBackend يجب أن يكون:
+Modular .
+قاباًل للتوسع .
+واضح المسوؤوليات.
+آمناًلا على مستوى الحلقة والعضوية.
+مستقاًل عن الـ Frontend.
+مبنياًلا حول الـBusiness Domain وليس حول الشاشات.
+التوصية للـMVP:
+Modular Monolith
+وليس Microservices.
+الـMicroservices ستضيف تعقيداًلا غري مطلوب حالياًلا، بينما الـModular Monolith يسمح بالتوسع والفصل المنطقي دون تكلفة تشغيلية زائدة.
+2. Backend Modules
+Backend
+│
+├── Identity
+├── Circles
+├── QuranReference
+├── LearningProfiles
+├── Progression
+├── DailyAssignments
+├── DailyReports
+└── TeacherDashboard
+كل Module مسوؤول عن Domain واضح. •
+ •
+ •
+ •
+ •
+ •
+1
+---PAGE BREAK---
+3. Identity Module
+مسوؤول عن:
+إنشاء الحساب.
+تسجيل الدخول.
+إدارة الجلسات.
+بيانات المستخدم األساسية.
+API
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/auth/me
+4. Circles Module
+مسوؤول عن:
+إنشاء الحلقة.
+إدارة الحلقة.
+األعضاء.
+الدعوات.
+API
+POST   /api/circles
+GET    /api/circles
+GET    /api/circles/{circleId}
+PATCH  /api/circles/{circleId}
+5. Create Circle
+Request
+Name
+Description?• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+2
+---PAGE BREAK---
+Result
+Circle
+Teacher Membership
+Default Invitation Code
+منشئ الحلقة يصبح:
+Role = Teacher
+6. Circle Invitations
+API
+POST /api/circles/{circleId}/invitations
+GET  /api/circles/{circleId}/invitations
+POST /api/circle-invitations/resolve
+POST /api/circle-invitations/join
+Join Flow
+Invitation Code / Link
+        ↓
+Validate Invitation
+        ↓
+Show Circle Information
+        ↓
+User Confirms
+        ↓
+Create Student Membership
+        ↓
+Create Student Learning Profile
+        ↓
+Start Learning Setup
+3
+---PAGE BREAK---
+7. Circle Members
+API
+GET   /api/circles/{circleId}/members
+GET   /api/circles/{circleId}/students
+GET   /api/circles/{circleId}/students/{studentId}
+PATCH /api/circles/{circleId}/members/{membershipId}
+Teacher Permissions
+المعلم يستطيع:
+مشاهدة الطب.
+مشاهدة تقاريرهم.
+تعطيل عضوية طالب.
+في الـMVP ال يحتاج إلى تعديل نظام الطالب إال إذا قررنا إضافتها الحقاًلا.
+8. Quran Reference Module
+مسوؤول عن بيانات المصحف.
+API
+GET /api/quran/surahs
+GET /api/quran/surahs/{surahId}
+GET /api/quran/pages/{pageNumber}
+GET /api/quran/segments
+GET /api/quran/ranges/resolve
+9. Quran Range Resolver
+Endpoint مهم للـFrontend.
+مثال:
+الطالب يختار: •
+ •
+ •
+4
+---PAGE BREAK---
+Surah = Al-Baqarah
+Page = 20
+النظام يعيد:
+Start Ayah
+End Ayah
+Display Label
+ويمكن استخدامه عند التعديل اليدوي.
+10. Learning Profile Module
+مسوؤول عن إعداد نظام الطالب.
+API
+GET   /api/me/circles/{circleId}/learning-profile
+POST  /api/me/circles/{circleId}/learning-profile/setup
+PATCH /api/me/circles/{circleId}/memorization-settings
+PATCH /api/me/circles/{circleId}/revision-settings
+11. Initial Learning Setup
+Request
+Memorization
+Mode
+StartingPosition
+Revision
+Mode
+CycleStart
+CycleEnd
+StartingPosition
+5
+---PAGE BREAK---
+Backend Process
+Validate Student Membership
+        ↓
+Validate Quran Ranges
+        ↓
+Create Learning Profile
+        ↓
+Create Memorization Configuration
+        ↓
+Create Revision Configuration
+        ↓
+Initialize Progress State
+12. Daily Assignment Module
+مسوؤول عن تجهزي المطلوب اليومي.
+Main API
+GET /api/me/circles/{circleId}/today
+هذا هو أهم Endpoint للطالب.
+13. GET Today Response
+الـFrontend ال يحتاج إلى فهم الـProgression Engine.
+يحصل على View Model جاهز:
+Date
+Report Status
+Memorization
+    Suggested Range
+    Display Label
+    Page Information
+    Surah Information
+Revision
+    Suggested Range
+6
+---PAGE BREAK---
+    Display Label
+Existing Draft?
+Existing Submission?
+14. GET Today Internal Flow
+Authenticate User
+        ↓
+Find Student Membership
+        ↓
+Load Learning Profile
+        ↓
+Check Today's Existing Report
+        ↓
+Check Today's Existing Assignment
+        ↓
+If Missing:
+    Generate Assignment
+        ↓
+Return Student Today View
+15. Daily Report Module
+API
+POST  /api/me/circles/{circleId}/reports
+GET   /api/me/circles/{circleId}/reports
+GET   /api/me/circles/{circleId}/reports/{reportId}
+PATCH /api/me/circles/{circleId}/reports/{reportId}
+16. Submit Daily Report
+Request Concept
+AssignmentId
+Memorization:
+    Actual Range
+7
+---PAGE BREAK---
+    Completion Status
+    Mistakes Count
+    Notes
+    Listener
+Revision:
+    Actual Range
+    Completion Status
+    Mistakes Count
+    Notes
+    Listener
+General Notes
+17. Submit Report Business Flow
+Authenticate
+        ↓
+Validate Membership
+        ↓
+Validate Assignment Ownership
+        ↓
+Validate Report Date
+        ↓
+Validate Quran Ranges
+        ↓
+Validate Mistakes Count
+        ↓
+Validate Listener
+        ↓
+Create Daily Report
+        ↓
+Create Report Entries
+        ↓
+Create Recitation Records
+        ↓
+Recalculate Memorization Progress
+        ↓
+Update Revision Progress
+        ↓
+Mark Assignment Submitted
+        ↓
+Commit Transaction
+8
+---PAGE BREAK---
+18. Important Idempotency Rule
+الطالب قد يضغط زر اإلرسال مرتني بسبب:
+بطء اإلنرتنت.
+إعادة المحاولة.
+Double Click.
+ال يجب إنشاء تقريرين.
+الحماية األساسية:
+Unique:
+StudentLearningProfileId + ReportDate
+ويمكن دعم:
+Idempotency Key
+مستقباًل إذا احتجنا مستوى أقوى .
+19. Student Reports History
+API
+GET /api/me/circles/{circleId}/reports
+Filters
+FromDate
+ToDate
+Page
+PageSize
+Result
+لكل تقرير:
+Date.
+Memorization Summary.
+Revision Summary.
+Mistakes.
+Submission Time.• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+9
+---PAGE BREAK---
+20. Teacher Dashboard Module
+هذا Module مخصص للـRead Models الخاصة بالمعلم.
+ال يجب إجبار الـFrontend على تجميع بيانات عشرات Endpoints.
+API
+GET /api/circles/{circleId}/dashboard
+21. Teacher Dashboard Response
+يحتوي على:
+Circle Summary
+Total Students.
+Submitted Today.
+Not Submitted Today.
+Student Daily Status
+لكل طالب:
+Student
+Report Status
+Submission Time
+Memorization Summary
+Revision Summary
+Total Mistakes
+22. Teacher Dashboard Date Selection
+المعلم يجب أن يستطيع تغيري التاريخ.
+GET /api/circles/{circleId}/dashboard?date=YYYY-MM-DD
+وبذلك يمكنه روؤية:
+اليوم. •
+ •
+ •
+ •
+10
+---PAGE BREAK---
+األمس.
+أي يوم سابق.
+23. Student Report Details for Teacher
+API
+GET /api/circles/{circleId}/students/{studentId}/reports
+GET /api/circles/{circleId}/students/{studentId}/reports/{reportId}
+المعلم يرى:
+الحفظ المقرتح.
+الحفظ الفعلي.
+أخطاء الحفظ.
+المراجعة المقرتحة.
+المراجعة الفعلية.
+أخطاء المراجعة.
+من استمع للطالب.
+المحظات.
+وقت اإلرسال.
+24. Student Profile for Teacher
+API
+GET /api/circles/{circleId}/students/{studentId}/overview
+يعرض:
+Student Information.
+Memorization System.
+Revision System.
+Current Memorization Position.
+Current Revision Position.
+Recent Reports.
+الحقاًلا يمكن إضافة:
+Statistics.
+Attendance.
+Exams.
+Progress Charts.• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+11
+---PAGE BREAK---
+25. Authorization Model
+يجب أال يعتمد األمان على إخفاء األزرار في الـFrontend.
+كل Request يتم التحقق منه في الـBackend.
+26. Permission Rules
+Student
+يستطيع:
+روؤية الحلقات اليت ينتمي إليها.
+روؤية Learning Profile الخاص به.
+روؤية Assignment الخاص به.
+إرسال تقريره.
+روؤية تقاريره.
+ال يستطيع:
+روؤية تقارير طالب آخر.
+الوصول إلى Teacher Dashboard.
+Teacher
+داخل حلقته يستطيع:
+روؤية أعضاء الحلقة.
+روؤية جميع تقارير الطب.
+روؤية Dashboard.
+إدارة العضويات والدعوات.
+ال يستطيع:
+الوصول إلى حلقات ال يديرها.
+27. Resource-Based Authorization
+مثال:
+GET /circles/123/students/456/reports
+ال يكفي أن يكون المستخدم: •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+12
+---PAGE BREAK---
+Role = Teacher
+يجب التحقق من:
+هل هذا المستخدم Teacher داخل Circle 123 تحديداًلا؟
+وهل Student 456 عضو في نفس الحلقة؟
+28. Recommended Authorization Policies
+مفاهيمياًلا:
+CanManageCircle
+CanViewCircleReports
+CanAccessOwnLearningProfile
+CanSubmitOwnReport
+CanViewStudentReport
+هذا أفضل من نشر شروط الصحيات داخل كل Controller .
+29. Application Layer Structure
+التوصية:
+Modules
+│
+├── Circles
+│   ├── CreateCircle
+│   ├── JoinCircle
+│   ├── GetCircle
+│   └── GetMembers
+│
+├── Learning
+│   ├── SetupLearningProfile
+│   ├── UpdateMemorizationSettings
+│   └── UpdateRevisionSettings
+│
+├── Assignments
+│   └── GetTodayAssignment
+│
+├── Reports
+│   ├── SubmitDailyReport
+13
+---PAGE BREAK---
+│   ├── UpdateDailyReport
+│   └── GetReportHistory
+│
+└── Dashboard
+    ├── GetTeacherDashboard
+    └── GetStudentOverview
+كل Use Case يكون واضحاًلا ومستقاًل .
+30. Domain Layer
+يحتوي على:
+Entities.
+Value Objects.
+Business Rules.
+Domain Services.
+أمثلة:
+QuranRange
+QuranPosition
+MemorizationConfiguration
+RevisionCycle
+DailyAssignment
+DailyReport
+31. Important Value Object: QuranRange
+بدل تمرير:
+StartAyahId
+EndAyahId
+في كل Business Logic ،يفضل التعامل مفاهيمياًلا مع:
+QuranRange
+وهو مسوؤول عن قواعد مثل:
+Start ≤ End.
+Contains Position.• 
+• 
+• 
+• 
+• 
+• 
+14
+---PAGE BREAK---
+Overlaps Range.
+Is Adjacent To.
+Merge.
+Length.
+هذا سيجعل الـProgression Engine أنظف كثرياًلا.
+32. Infrastructure Layer
+مسوؤول عن:
+Database.
+Authentication.
+Email مستقباًل .
+Notifications مستقباًل .
+External Quran Data Import.
+الـDomain ال يجب أن يعتمد مباشرة على هذه التفاصيل.
+33. Recommended Backend Structure
+src/
+│
+├── Api
+├── Application
+├── Domain
+├── Infrastructure
+└── Modules
+أو Feature-Based Modular Structure حسب التقنية المختارة.
+األهم ليس أسماء المجلدات، بل:
+فصل Business Logic عن HTTP وعن Database Implementation.
+34. Error Model
+كل API يجب أن يعيد Error Format موحداًلا.
+مثال مفاهيمي:
+Code
+Message• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+15
+---PAGE BREAK---
+FieldErrors
+TraceId
+Error Codes
+CIRCLE_NOT_FOUND
+NOT_CIRCLE_MEMBER
+NOT_AUTHORIZED
+LEARNING_PROFILE_NOT_CONFIGURED
+INVALID_QURAN_RANGE
+REPORT_ALREADY_SUBMITTED
+ASSIGNMENT_STALE
+INVALID_INVITATION
+35. Concurrency Protection
+سيناريو:
+الطالب فتح التقرير على جهازين وأرسل من االثنني.
+يجب حماية:
+Daily Report uniqueness.
+Assignment status.
+Progress update.
+باستخدام:
+Database Constraints.
+Transaction.
+Optimistic Concurrency عند الحاجة.
+36. Date and Time Strategy
+يجب تخزين:
+Timestamps → UTC
+لكن:
+Report Date• 
+• 
+• 
+• 
+• 
+• 
+16
+---PAGE BREAK---
+يجب أن يعتمد على Time Zone الخاصة بالحلقة أو المستخدم.
+في الـMVP يمكن اعتماد:
+Circle Time Zone
+وهذا أفضل من االعتماد على توقيت السريفر.
+37. Recommended Circle Field
+إضافة:
+TimeZone
+إلى Circle.
+مثال:
+Africa/Cairo
+للحلقة" اليوم "وبذلك يعرف النظام مىت يبدأ وينتهي.
+38. API Design Principle
+الـAPI ال يجب أن يكشف Database Tables مباشرة.
+مثال سيئ:
+GET /daily-assignment-items
+كتجربة للمستخدم.
+األفضل:
+GET /me/circles/{circleId}/today
+ألن الـEndpoint يمثل Use Case حقيقي .
+17
+---PAGE BREAK---
+39. MVP API Surface Summary
+AUTH
+Register
+Login
+Logout
+Current User
+CIRCLES
+Create Circle
+List My Circles
+Get Circle
+Create Invitation
+Join Circle
+List Students
+QURAN
+Surahs
+Pages
+Segments
+Range Resolution
+LEARNING PROFILE
+Get Profile
+Initial Setup
+Update Memorization Settings
+Update Revision Settings
+STUDENT DAILY EXPERIENCE
+Get Today
+Submit Report
+Update Report
+Report History
+Report Details
+TEACHER
+Dashboard by Date
+Student Overview
+Student Reports
+Report Details
+40. Recommended Technical Architecture
+Web Frontend
+      │
+18
+---PAGE BREAK---
+      │ HTTPS / REST API
+      ▼
+Backend Application
+      │
+      ├── Authentication
+      ├── Authorization
+      ├── Application Use Cases
+      ├── Progression Engine
+      └── Domain Rules
+      │
+      ▼
+Relational Database
+لـMVP ال نحتاج:
+Microservices.
+Message Broker .
+Kubernetes.
+Event Streaming.
+نضيف Infrastructure إضافية فقط عندما تظهر حاجة حقيقية.
+41. Final Backend Principle
+النظام يجب أن يكون مبنياًلا حول هذه الدورة:
+Student Settings
+      ↓
+Progression Engine
+      ↓
+Daily Assignment
+      ↓
+Actual Daily Report
+      ↓
+Progress Recalculation
+      ↓
+Teacher Visibility
+      ↓
+Next Assignment
+الـBackend هو المسوؤول عن صحة هذه الدورة بالكامل.
+الـFrontend مسوؤول عن جعلها:
+بسيطة، سريعة، وواضحة للمستخدم. •
+ •
+ •
+ •
+19
+---PAGE BREAK---

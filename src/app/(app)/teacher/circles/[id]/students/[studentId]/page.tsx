@@ -1,12 +1,14 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardHeader, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { ArrowRight, Calendar, FileText } from "lucide-react"
+import { ArrowRight, Calendar, FileText, Sparkles, Settings2 } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
 import type { StructuredReport } from "@/lib/reports/types"
+import { formatRange } from "@/lib/quran"
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
 interface StudentDetailsPageProps {
   params: Promise<{ id: string; studentId: string }>
@@ -66,6 +68,30 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
     .eq("student_id", studentId)
     .order("report_date", { ascending: false })
 
+  // Fetch assignments for this student in this circle (for planned vs actual)
+  const { data: assignments } = await supabase
+    .from("daily_assignments")
+    .select("assignment_date, hifz_surah, hifz_from_ayah, hifz_to_ayah, revision_ranges, status")
+    .eq("circle_id", circleId)
+    .eq("student_id", studentId)
+    .order("assignment_date", { ascending: false })
+    .limit(30)
+
+  // Check if student has memorization settings configured
+  const { data: settingsRow } = await supabase
+    .from("memorization_settings")
+    .select("user_id")
+    .eq("circle_id", circleId)
+    .eq("user_id", studentId)
+    .maybeSingle()
+
+  const setupRequired = !settingsRow
+
+  // Index assignments by date for easy lookup
+  const assignmentByDate = Object.fromEntries(
+    (assignments || []).map((a) => [a.assignment_date, a]),
+  )
+
   // Calculate stats for this student
   const totalReports = reports?.length || 0
   const totalMistakes = reports?.reduce((acc, curr) => acc + (curr.total_mistakes || 0), 0) || 0
@@ -97,6 +123,12 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
                 <Calendar className="w-3.5 h-3.5" />
                 تاريخ الانضمام: {joinDateFormatted}
               </p>
+              {setupRequired && (
+                <div className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                  <Settings2 className="w-3.5 h-3.5" />
+                  <span>الطالب لم يعدّ نظام الحفظ بعد</span>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -140,14 +172,56 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
                   <CardHeader className="pb-2 border-b border-stone-50 dark:border-stone-900/50 mb-3 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-2 text-xs">
                       <Calendar className="w-4 h-4 text-stone-400" />
-                      <span className="font-semibold text-stone-700 dark:text-stone-300">{dayName}، {dateFormatted}</span>
+                      <span className="font-semibold text-stone-700 dark:text-stone-300">
+                        {dayName}، {dateFormatted}
+                      </span>
                       {report.week_reference && (
                         <span className="text-[10px] px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-500 font-medium">
                           {report.week_reference}
                         </span>
                       )}
                     </div>
+                    {/* Planned vs Actual badge */}
+                    {(() => {
+                      const assignment = assignmentByDate[report.report_date]
+                      if (!assignment) return null
+                      const plannedHifz = assignment.hifz_surah
+                        ? formatRange({
+                            surah: assignment.hifz_surah,
+                            fromAyah: assignment.hifz_from_ayah ?? 1,
+                            toAyah: assignment.hifz_to_ayah ?? 1,
+                          })
+                        : null
+                      const actualHifz = report.did_hifz && report.hifz_surah
+                        ? formatRange({
+                            surah: report.hifz_surah,
+                            fromAyah: report.hifz_from_ayah ?? 1,
+                            toAyah: report.hifz_to_ayah ?? 1,
+                          })
+                        : null
+                      const matched = plannedHifz === actualHifz
+                      return (
+                        <Badge variant={matched ? "success" : report.did_hifz ? "warning" : "secondary"}>
+                          {matched ? "أكمل المقترح" : report.did_hifz ? "حفظ غير المقترح" : "لم يحفظ"}
+                        </Badge>
+                      )
+                    })()}
                   </CardHeader>
+
+                  {/* Planned suggestion */}
+                  {assignmentByDate[report.report_date]?.hifz_surah && (
+                    <div className="flex items-center gap-1.5 px-4 pb-2 text-[11px] text-primary-600 dark:text-primary-400">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <span className="font-semibold">المقترح:</span>
+                      <span>
+                        {formatRange({
+                          surah: assignmentByDate[report.report_date].hifz_surah!,
+                          fromAyah: assignmentByDate[report.report_date].hifz_from_ayah ?? 1,
+                          toAyah: assignmentByDate[report.report_date].hifz_to_ayah ?? 1,
+                        })}
+                      </span>
+                    </div>
+                  )}
 
                   <CardContent className="pt-2">
                     <ReportSummary report={report as unknown as StructuredReport} />

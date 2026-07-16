@@ -1,0 +1,551 @@
+Smart Progression Engine Specification
+Business Rules & Algorithm Design — MVP
+1. Purpose
+الـSmart Progression Engine مسؤول عن اإلجابة عن سؤالني:
+ما الحفظ المقرتح للطالب في التقرير القادم؟
+وما المراجعة المقرتحة له؟
+ويعتمد على التقدم الفعلي  وليس مجرد مرور األيام.
+2. Engine Inputs
+عند تجهزي تقرير اليم، يستقبل النظام:
+Student Context
+StudentLearningProfile.
+Circle.
+Quran Edition.
+Memorization Configuration
+Mode.
+Starting Position.
+Continuous Progress Frontier .
+Revision Configuration
+Mode.
+Cycle Start.
+Cycle End.
+Current Revision Position.
+Historical Data
+Previous submitted reports.
+Actual memorization ranges.
+Actual revision ranges.
+Existing assignment for today.• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+1
+---PAGE BREAK---
+3. Engine Output
+ينتج:
+Memorization Assignment
+Start Position.
+End Position.
+Segment Type.
+Display Information.
+Revision Assignment
+Start Position.
+End Position.
+Segment Type.
+Display Information.
+4. Assignment Generation Lifecycle
+عندما يفتح الطالب تقرير اليم:
+Check Existing Assignment
+        ↓
+Exists?
+   Yes → Return Existing Assignment
+   No  → Generate New Assignment
+        ↓
+Save Assignment
+        ↓
+Return to Student
+قاعدة مهمة
+بمجرد إنشاء اقرتاح اليم، ال يتغري تلقائيًا كل مرة يفتح الطالب الصفحة.
+وإال قد يرى الطالب اقرتاحًا مختلفًا خالل نفس اليم. •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+2
+---PAGE BREAK---
+5. Memorization Generation Algorithm
+Step 1 — Read Memorization Mode
+مثال:
+HalfPage.
+FullPage.
+Custom.
+Step 2 — Determine Continuous Frontier
+معرفة آخر مضع مكتمل بشكل متصل.
+Step 3 — Find Next Required Range
+بناءً على:
+Current Frontier .
+Selected Mode.
+Quran Segment Sequence.
+Step 4 — Create Assignment Item
+يتم تخزين االقرتاح.
+6. Full Page Mode
+إذا كان:
+Mode = FullPage
+Current Frontier = End of Page 20
+فالنتيجة:
+Suggested = Page 21
+إذا كان الـFrontier داخل Page 21 بسبب إنجاز جزئي:
+Suggested = Remaining Range of Page 21
+وليس Page 22.• 
+• 
+• 
+• 
+• 
+• 
+3
+---PAGE BREAK---
+7. Half Page Mode
+يكن التسلسل:
+Page 20 / First Half
+        ↓
+Page 20 / Second Half
+        ↓
+Page 21 / First Half
+        ↓
+Page 21 / Second Half
+إذا أكمل الطالب جزءًا من النصف فقط:
+Next Suggestion = Remaining Part
+8. Partial Completion
+Example
+Planned
+Page 21:
+Ayah 1 → Ayah 10
+Actual
+Ayah 1 → Ayah 6
+Result
+Continuous Frontier:
+Ayah 6
+Next Assignment
+Ayah 7 → Ayah 10
+بعد إكمال المتبقي ينتقل النظام إلى الحدة التالية.
+4
+---PAGE BREAK---
+9. No Completion
+إذا كان:
+CompletionStatus = NotCompleted
+فال يتحرك التقدم.
+التقرير التالي يقرتح نفس النطاق مرة أخرى.
+10. Overachievement
+Planned
+Page 21
+Actual
+Page 21 + Page 22
+إذا كان النطاق:
+متصالً بالـ Current Frontier .
+ال يحتي على Gap.
+يتم تحديث الـFrontier إلى نهاية Page 22.
+االقرتاح التالي:
+Page 23
+11. Out-of-Sequence Memorization
+Current Frontier
+Page 20
+Actual Submission
+Page 25• 
+• 
+5
+---PAGE BREAK---
+يتم:
+حفظ التقرير.
+تسجيل Page 25 كإنجاز فعلي.
+عدم تحريك Continuous Frontier .
+ويبقى:
+Next Suggested = Page 21
+12. Gap Resolution
+مثال:
+Page 20 ✓
+Page 21 ✓
+Page 22 ✗
+Page 23 ✓
+Frontier:
+Page 21
+بعد إكمال Page 22:
+Page 20 ✓
+Page 21 ✓
+Page 22 ✓
+Page 23 ✓
+يقم Recalculation Engine بدمج النطاقات.
+Frontier يصبح:
+Page 23
+واالقرتاح التالي:
+Page 24• 
+• 
+• 
+6
+---PAGE BREAK---
+13. Memorization Recalculation Algorithm
+عند الحاجة:
+Get All Valid Memorization Actual Ranges
+        ↓
+Sort by Quran Position
+        ↓
+Merge Overlapping Ranges
+        ↓
+Merge Adjacent Ranges
+        ↓
+Start from Memorization Starting Position
+        ↓
+Move Forward While Coverage Is Continuous
+        ↓
+Stop at First Gap
+        ↓
+Set Continuous Frontier
+Source of Truth
+التقارير الفعلية.
+Cached Value
+CurrentFrontier .
+14. Manual Modification
+عندما يعدل الطالب اقرتاح اليم:
+Suggested
+Page 21
+Selected
+Page 18
+يتم حفظ:
+Planned = Page 21
+Actual = Page 18
+7
+---PAGE BREAK---
+لكن Page 18 ال يعيد Progress للخلف.
+15. Changing Memorization System
+مثال:
+Old Mode = HalfPage
+New Mode = FullPage
+ال يتم تغيري التقدم السابق.
+يتم فقط تغيري طريقة حساب الوحدة التالية .
+إذا كان Frontier في منتصف Page 30:
+االقرتاح التالي:
+Remaining Part of Page 30
+وبعدها يبدأ:
+Page 31 Full
+16. End of Surah
+النظام ال يعتمد على السرة كحدة تقدم أساسية.
+يعتمد على Quran Position .
+لذلك:
+End of Surah A
+        ↓
+Beginning of Surah B
+يحدث تلقائيًا إذا كان نطاق الحدة يعرب بني السرتني.
+واجهة المستخدم تعرض النطاق بشكل مفهم:
+8
+---PAGE BREAK---
+سورة األنفال: اآليات األخيرة
++
+سورة التوبة: اآليات األولى
+17. End of Quran
+عند الصل إلى نهاية نطاق الحفظ المحدد:
+Memorization Status = Completed
+وال يتم إنشاء اقرتاح حفظ جديد.
+تظهر رسالة:
+مت إكمال نطاق الحفظ المحدد.
+يمكن مستقبالً :
+بدء دورة جديدة.
+االنتقال لنظام مراجعة.
+تحديد هدف جديد.
+18. Revision Engine
+المراجعة تختلف عن الحفظ.
+الحفظ:
+Linear Continuous Progress
+المراجعة:
+Repeating Cycle
+19. Revision Configuration
+مثال: •
+ •
+ •
+9
+---PAGE BREAK---
+Cycle Start = Juz 1
+Cycle End = Juz 10
+Amount = One Hizb
+النظام يتحرك داخل هذا النطاق بشكل دوري.
+20. Revision Generation Algorithm
+Read Revision Configuration
+        ↓
+Get Current Revision Cursor
+        ↓
+Calculate Next Range by Selected Amount
+        ↓
+Ensure Range Does Not Exceed Cycle End
+        ↓
+Generate Revision Assignment
+21. Revision Cycle Wrap
+إذا كان:
+Cycle End = End of Juz 10
+ووصل الطالب للنهاية:
+Next Revision = Cycle Start
+فتبدأ دورة جديدة.
+22. Revision Partial Completion
+Planned
+One Hizb
+Actual
+Half Hizb
+10
+---PAGE BREAK---
+Result
+Revision Cursor يتحرك إلى نهاية ما تمت مراجعته فعليًا.
+التقرير القادم:
+Remaining Half Hizb
+23. Revision Not Completed
+إذا لم تتم المراجعة:
+Revision Cursor = Unchanged
+واالقرتاح التالي:
+Same Revision Range
+24. Revision Manual Override
+Suggested
+Hizb 10
+Actual
+Hizb 5
+يتم تسجيل Hizb 5.
+لكن ال يتم تحريك Revision Cursor تلقائيًا للخلف.
+االقرتاح القادم يظل مبنيًا على مسار الدورة األسايس.
+25. Revision Cycle Advancement Rule
+يتحرك Cursor فقط إذا كان Actual Range:
+يبدأ من Current Expected Position.
+ويتقدم داخل الدورة الحالية. •
+ •
+11
+---PAGE BREAK---
+المراجعات خارج المسار:
+تسجل.
+تظهر في التاريخ.
+ال تغري Cursor األسايس.
+26. Missed Days
+الـEngine ال يعاقب الطالب على األيام اليت لم يرسل فيها تقريرًا.
+مثال:
+Monday:
+Memorization = Page 20
+Tuesday:
+No Report
+Wednesday:
+No Report
+Thursday:
+Open Report
+النتيجة:
+Memorization = Page 21
+Revision = Next Uncompleted Revision Range
+27. Editing Today's Assignment
+قبل اإلرسال:
+يمكن تعديل االقرتاح بحرية.
+التعديل ال يغري Progress.
+Progress يتغري فقط بعد:
+Submit Report• 
+• 
+• 
+12
+---PAGE BREAK---
+28. Editing Submitted Report
+عند تعديل تقرير مت إرساله:
+Validate Updated Actual Ranges
+        ↓
+Save Changes
+        ↓
+Recalculate Memorization Progress
+        ↓
+Recalculate Revision Cursor if Required
+        ↓
+Invalidate Future Unsubmitted Assignments if Affected
+29. Assignment Invalidation
+مثال:
+مت إنشاء اقرتاح الغد مسبقًا.
+مث عدّل الطالب تقرير اليم، فتغري Progress.
+اقرتاح الغد أصبح قديمًا.
+لذلك:
+Unsubmitted Future Assignment
+        ↓
+Mark as Stale / Regenerate
+أما التقارير المرسلة فال يتم تغيريها تلقائيًا.
+30. Recommended Assignment Statuses
+Generated
+Modified
+Submitted
+Stale
+Cancelled
+13
+---PAGE BREAK---
+31. Daily Report Submission Transaction
+عند الضغط على:
+إرسال التقرير
+يجب تنفيذ العملية كحدة واحدة:
+Validate Membership
+        ↓
+Validate Report Date
+        ↓
+Validate Quran Ranges
+        ↓
+Save Daily Report
+        ↓
+Save Actual Entries
+        ↓
+Save Mistakes
+        ↓
+Save Recitation Listeners
+        ↓
+Recalculate Progress
+        ↓
+Update Cached Progress
+        ↓
+Mark Assignment Submitted
+        ↓
+Commit
+إذا فشل جزء أسايس:
+Rollback
+32. Daily Suggestion Decision Tree
+Does today's assignment exist?
+│
+├── Yes
+│   └── Return it
+│
+└── No
+    │
+    ├── Load Memorization Configuration
+14
+---PAGE BREAK---
+    │
+    ├── Calculate Memorization Suggestion
+    │
+    ├── Load Revision Configuration
+    │
+    ├── Calculate Revision Suggestion
+    │
+    └── Save Daily Assignment
+33. Important UX Rule
+الطالب ال يجب أن يرى تعقيد الـEngine.
+ه يرى فقط:
+حفظ اليوم
+21 صفحة
+سورة البقرة
+ من اآليةX  إلىY
+[  تعديل]
+و:
+مراجعة اليوم
+الحزب السادس
+[  تعديل]
+كل التعقيد يجب أن يبقى خلف تجربة بسيطة.
+34. Engine Services — Conceptual Architecture
+بدون كتابة كد، يمكن تقسيم المنطق إلى:
+QuranReferenceService
+مسؤول عن:
+Quran Positions.
+Pages.
+Segments.
+Range Validation.• 
+• 
+• 
+• 
+15
+---PAGE BREAK---
+MemorizationProgressionService
+مسؤول عن:
+Continuous Frontier .
+Next Memorization Range.
+Gap Detection.
+RevisionProgressionService
+مسؤول عن:
+Revision Cursor .
+Cycle Progression.
+Cycle Wrap.
+DailyAssignmentService
+مسؤول عن:
+إنشاء اقرتاح اليم.
+حفظه.
+إعادة تليده عند الحاجة.
+DailyReportService
+مسؤول عن:
+إرسال التقرير.
+تعديله.
+Validation.
+ProgressRecalculationService
+مسؤول عن:
+إعادة حساب التقدم من Source of Truth.
+35. MVP Rules Summary
+Memorization
+يعتمد على اإلنجاز وليس التاريخ.
+اإلنجاز الجزئي يلد المتبقي.
+الغياب ال يحرك التقدم.
+التقدم خارج الرتتيب ال يتخطى الـGap.
+التعديل اليدوي مسمح.
+التقارير الفعلية هي Source of Truth.• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+16
+---PAGE BREAK---
+Revision
+تعمل كدورة.
+لها بداية ونهاية.
+لها مقدار ثابت.
+اإلنجاز الجزئي يلد المتبقي.
+عند نهاية الدورة تعد للبداية.
+المراجعة خارج المسار ال تفسد Cursor األسايس.
+Assignment
+يتم تليده مرة واحدة لليم.
+يمكن تعديله.
+ال يغري Progress قبل اإلرسال.
+يمكن اعتباره Stale إذا تغريت البيانات اليت بُين عليها.
+36. Final Engine Formula
+Memorization
+Actual Continuous Progress
+→ Find First Uncompleted Quran Range
+→ Apply Student Memorization Unit
+→ Generate Next Suggestion
+Revision
+Current Revision Cursor
+→ Apply Revision Unit
+→ Respect Cycle Boundaries
+→ Wrap When Needed
+→ Generate Next Suggestion
+37. Architecture Outcome
+بهذا التصميم، الـSmart Progression Engine ال يعرف شيًا عن شكل الـUI ،وال يعتمد على WhatsApp أو Dashboard.• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+17
+---PAGE BREAK---
+ه Domain Engine مستقل يمكن استخدامه مستقبالً في :
+التقرير اليمي.
+خطط الحفظ.
+تطبيق Mobile.
+Teacher Assignments.
+Notifications.
+AI Recommendations.
+Analytics.
+وهذا يجعل قلب النظام قابالً للتسع دون إعادة بنائه . •
+ •
+ •
+ •
+ •
+ •
+ •
+18
+---PAGE BREAK---

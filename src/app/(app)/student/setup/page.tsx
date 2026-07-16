@@ -56,8 +56,9 @@ function SetupPageContent() {
   const [hifzCustomNote, setHifzCustomNote] = React.useState("")
   // Step 3 — revision amount
   const [revisionAmount, setRevisionAmount] = React.useState<string>("hizb")
-  // Step 4 — revision start
+  // Step 4 — revision start & end
   const [revisionStart, setRevisionStart] = React.useState(1)
+  const [revisionEnd, setRevisionEnd] = React.useState(60)
 
   const maxAyah = getSurah(startSurah)?.ayahCount ?? 1
 
@@ -104,8 +105,9 @@ function SetupPageContent() {
             setStartAyah(existing.start_ayah ?? 1)
             setHifzAmount(existing.hifz_amount ?? "full_page")
             setHifzCustomNote(existing.hifz_custom_note ?? "")
-            setRevisionAmount(existing.revision_amount ?? "hizb")
+             setRevisionAmount(existing.revision_amount ?? "hizb")
             setRevisionStart(existing.revision_start ?? 1)
+            setRevisionEnd(existing.revision_end ?? 60)
           }
         }
       } catch {
@@ -146,6 +148,7 @@ function SetupPageContent() {
             hifz_custom_note: hifzAmount === "custom" ? hifzCustomNote : null,
             revision_amount: revisionAmount,
             revision_start: revisionStart,
+            revision_end: revisionEnd,
           },
           { onConflict: "user_id,circle_id" },
         )
@@ -353,22 +356,37 @@ function SetupPageContent() {
               </div>
             )}
 
-            {/* Step 4 — revision start */}
+            {/* Step 4 — revision start & end */}
             {step === 4 && (
               <div className="flex flex-col gap-4">
-                <h3 className="font-bold text-stone-800 dark:text-stone-200">من أين تبدأ المراجعة؟</h3>
-                <Input
-                  label="رقم الحزب (1 - 60)"
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={revisionStart}
-                  onChange={(e) => setRevisionStart(Math.min(Math.max(1, Number(e.target.value)), 60))}
-                  dir="ltr"
-                  className="text-center font-mono"
-                />
+                <h3 className="font-bold text-stone-800 dark:text-stone-200">تحديد نطاق المراجعة</h3>
                 <p className="text-xs text-stone-500">
-                  سيبدأ النظام باقتراح المراجعة من هذا الحزب، ثم يتقدّم تلقائياً بحسب نظامك.
+                  حدد الجزء الذي ترغب في مراجعته بشكل مستمر (مثال: من الحزب 1 إلى 10، أو كامل المصحف من 1 إلى 60).
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="بداية النطاق (الحزب)"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={revisionStart}
+                    onChange={(e) => setRevisionStart(Math.min(Math.max(1, Number(e.target.value)), 60))}
+                    dir="ltr"
+                    className="text-center font-mono"
+                  />
+                  <Input
+                    label="نهاية النطاق (الحزب)"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={revisionEnd}
+                    onChange={(e) => setRevisionEnd(Math.min(Math.max(1, Number(e.target.value)), 60))}
+                    dir="ltr"
+                    className="text-center font-mono"
+                  />
+                </div>
+                <p className="text-xs text-stone-500 bg-stone-50 dark:bg-stone-900/50 p-3 rounded-xl border border-stone-100 dark:border-stone-850">
+                  سيدور نظام المراجعة تلقائياً في هذا النطاق (من الحزب {revisionStart} إلى الحزب {revisionEnd}).
                 </p>
               </div>
             )}

@@ -1,0 +1,531 @@
+Smart Quran Progression System
+Product & Technical Specification — Part 1
+System Objective .1
+:الهدف من النظام هو تجهزي تقرير الطالب اليومي تلقائيًا بناءً على
+.نظام الحفظ الخاص به
+.نظام المراجعة الخاص به
+.آخر تقدم فعلي مسجل
+.بنية المصحف المرجعية
+.أي تعديالت يدوية أجراها الطالب
+:بدل أن يكتب الطالب كل يوم ما سيقوم بتسميعه، تصبح التجربة
+Open → Review Suggested Assignment → Adjust if Needed → Submit
+ النظام ال يقرر ما حفظه الطالب فعليًا، بل يقرتح المتوقع .، والطالب يسجل ما حدث بالفعل
+Core System Concepts .2
+:يجب الفصل بني خمسة مفاهيم أساسية
+Quran Reference 2.1
+:بيانات المصحف الثابتة اليت يعرف من خاللها النظام
+.السور
+.اآليات
+.الصفحات
+.األجزاء
+.األحزاب
+.أرباع األحزاب
+Student System 2.2
+.النظام الذي اختاره الطالب
+:مثال
+:الحفظ . صفحة يوميًا• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+1
+---PAGE BREAK---
+:المراجعة . حزب يوميًا
+Suggested Assignment 2.3
+.ما يقرتحه النظام لليوم
+:مثال
+:الحفظ المقرتح . الصفحة التالية
+:المراجعة المقرتحة . الحزب التالي
+Actual Submission 2.4
+.ما قام الطالب بتسميعه بالفعل
+.قد يكون مطابقًا للمقرتح أو مختلفًا عنه
+Progress State 2.5
+.الموضع الحقيقي الذي وصل إليه الطالب، والذي سيستخدمه النظام لحساب االقرتاح التالي
+Quran Reference Model .3
+:ال يجب بناء النظام باستخدام نصوص حرة مثل
+"30  إلى20 البقرة من"
+.منظمة Quran Reference Data بل باستخدام
+Surah
+:كل سورة تحتوي على
+.Surah ID
+.Arabic Name
+.Order Number
+.Total Ayahs •
+ •
+ •
+ •
+2
+---PAGE BREAK---
+Ayah
+:كل آية تحتوي على
+.Surah ID
+.Ayah Number
+.Global Sequence Number
+.Page Number
+.Juz Number
+.Hizb Number
+.Rub Al-Hizb Number
+Page
+:كل صفحة تحتوي على
+.Page Number
+.First Ayah Reference
+.Last Ayah Reference
+Juz
+.Juz Number
+.Start Reference
+.End Reference
+Hizb
+.Hizb Number
+.Start Reference
+.End Reference
+Rub Al-Hizb
+.Quarter Number
+.Start Reference
+.End Reference
+Canonical Quran Position .4
+.يجب أن يكون لكل آية موضع ترتييب عالمي داخل المصحف
+:مثال مفاهيمي
+Global Ayah Sequence
+.بحيث يستطيع النظام مقارنة موضعني بسهولة• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+3
+---PAGE BREAK---
+:بدل محاولة معرفة
+؟200  بعد البقرة آية10 هل سورة النساء آية
+.يعتمد النظام على ترتيب موحد لآليات
+:هذا يسهل
+.حساب النطاقات
+.االنتقال للموضع التالي
+.عبور نهاية السورة
+.حساب التقدم
+.مقارنة المواضع
+Memorization System .5
+Supported MVP Modes
+Half Page
+.نصف صفحة في كل وحدة حفظ
+Full Page
+.صفحة كاملة
+Custom
+.نطاق يحدده الطالب يدويًا
+Important Decision: Page Segmentation .6
+ نظام نصف صفحة . يحتاج إلى تعريف دقيق
+.ال يمكن افرتاض أن نصف الصفحة يعين نصف عدد اآليات، ألن أطوال اآليات مختلفة
+:لذلك توجد طريقتان
+Option A — Visual Half Page
+.تقسيم الصفحة وفق موضعها البصري الحقيقي في المصحف
+.األدق لتجربة الحفظ
+.يدعم مواضع األسطر أو تقسيم الصفحة Quran Dataset لكنه يحتاج إلى• 
+• 
+• 
+• 
+• 
+4
+---PAGE BREAK---
+Option B — Predefined Half-Page Boundaries
+:يتم تعريف كل صفحة مسبقًا إلى
+.First Half
+.Second Half
+.مع تحديد بداية ونهاية كل نصف باآليات
+التوصية
+استخدام Predefined Quran Segments.
+:يحتوي على Segment كل
+.Start Ayah
+.End Ayah
+.Type
+:مثل
+Page 20 — First Half
+Page 20 — Second Half
+.وبذلك يصبح النظام دقيقًا ومستقرًا
+Memorization Plan .7
+:لكل طالب داخل كل حلقة يوجد
+Memorization Configuration
+.Circle Membership
+.Mode
+.Starting Position
+.Current Progress Position
+.Status
+مثال
+:Mode Full Page 
+:Started At Page 20 
+:Current Completed Position Page 35  •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+5
+---PAGE BREAK---
+Full Page Progression .8
+:إذا كان النظام
+صفحة يوميًا
+:وكان آخر موضع مكتمل
+Page 20
+:فاالقرتاح التالي
+Page 21
+Sequence
+Page 20
+Page 21 →
+Page 22 →
+Page 23 →
+.ال يعتمد التقدم على التاريخ
+:يعتمد على
+.آخر تقدم فعلي تم تسجيله 
+Half Page Progression .9
+:إذا كان النظام
+نصف صفحة
+:يكون التسلسل
+Page 20 — First Half
+↓
+Page 20 — Second Half
+↓
+Page 21 — First Half
+↓
+6
+---PAGE BREAK---
+Page 21 — Second Half
+↓
+Page 22 — First Half
+Revision System .10
+.مستقلة تمامًا عن الحفظ Configuration المراجعة لها
+Supported MVP Modes
+.Quarter Hizb
+.Half Hizb
+.One Hizb
+.Two Hizbs
+.One Juz
+.Custom
+ كل مقدار يجب تحويله داخليًا إلى Quran Range.
+:مثال
+One Hizb
+:قد يتحول إلى
+Start Quran Position
+End Quran Position →
+Revision Progression .11
+:إذا اختار الطالب
+One Hizb Per Revision
+:وكان آخر حزب تمت مراجعته
+Hizb 10
+:فاالقرتاح التالي
+Hizb 11
+:مث• 
+• 
+• 
+• 
+• 
+• 
+7
+---PAGE BREAK---
+Hizb 12
+Hizb 13 →
+Hizb 14 →
+Critical Revision Question .12
+:المراجعة ليست دائمًا مجرد
+.الحزب التالي في المصحف
+:قد توجد عدة أنظمة واقعية
+Sequential Revision
+:مراجعة متتابعة
+Hizb 1 → Hizb 2 → Hizb 3
+Revision From Memorized Portion
+.المراجعة تتحرك فقط داخل الجزء المحفوظ
+Custom Revision Rotation
+.المعلم أو الطالب يحدد دورة مراجعة معينة
+MVP Recommendation
+:البدء بـ
+Sequential Revision Range
+:الطالب يحدد
+.نقطة بداية دورة المراجعة
+.نقطة نهاية دورة المراجعة
+.مقدار المراجعة في كل مرة
+:مثال
+:Review From Juz 1 
+:Review To Juz 10 
+:Daily Amount One Hizb 
+:عند الوصول للنهاية• 
+• 
+• 
+8
+---PAGE BREAK---
+.يعود النظام إلى بداية دورة المراجعة
+Revision Cycle Example .13
+:إعداد الطالب
+:Range Juz 1 → Juz 5 
+:Amount One Hizb 
+:يكون التسلسل
+Hizb 1
+Hizb 2 →
+... →
+Hizb 10 →
+Hizb 1 →
+.وهكذا تصبح المراجعة دورة مستمرة
+Daily Assignment Generator .14
+:عند فتح تقرير جديد، يقوم النظام بإنشاء
+Memorization Suggestion
+:بناءً على
+.Memorization Mode
+.Last Actual Progress
+.Next Quran Segment
+Revision Suggestion
+:بناءً على
+.Revision Mode
+.Revision Cycle
+.Last Actual Revision Progress
+.Next Revision Segment •
+ •
+ •
+ •
+ •
+ •
+ •
+9
+---PAGE BREAK---
+Daily Report States .15
+:التقرير يمر بالمراحل التالية
+Suggested
+.النظام جهز اقرتاح اليوم
+Modified
+.الطالب عدّل االقرتاح
+Submitted
+.مت تسجيل التقرير
+Updated
+.مت تعديل التقرير بعد اإلرسال
+Planned vs Actual .16
+.يجب تخزين االثنني بشكل منفصل
+Planned
+.ما اقرتحه النظام
+Example
+:Planned Memorization Page 21 
+Actual
+.ما مت فعليًا
+Example
+:Actual Memorization Page 21 — First Half 
+.هذا الفرق مهم جدًا للمستقبل
+10
+---PAGE BREAK---
+Progress Advancement Rule .17
+:التقدم ال يحدث عند
+.فتح التقرير
+.إنشاء االقرتاح
+.مرور اليوم
+:التقدم يحدث فقط عند
+.صالح Actual Completed Range إرسال
+Partial Completion .18
+:مثال
+:النظام اقرتح
+Page 21 Full
+:الطالب سمّع
+Page 21 First Half
+:يسجل النظام
+:Planned Full Page 21 
+:Actual First Half Page 21 
+:االقرتاح التالي يجب أن يكون
+Page 21 الجزء المتبقي من 
+.Page 22 وليس
+Overachievement .19
+:النظام اقرتح
+Page 21
+:لكن الطالب سمّع
+Page 21 + Page 22 •
+ •
+ •
+11
+---PAGE BREAK---
+.يتم تسجيل النطاق الفعلي
+:االقرتاح التالي
+Page 23
+ النظام يتبع التقدم الحقيقي . وليس الخطة النظرية
+Missed Days .20
+:إذا كان آخر تقرير
+Monday → Page 20
+:ولم يرسل الطالب
+.Tuesday
+.Wednesday
+.مث فتح الخميس
+:االقرتاح
+Page 21
+:وليس
+Page 23
+.ألن النظام يعتمد على اإلنجاز، وليس مرور األيام
+Manual Override .21
+.يمكن للطالب تعديل اقرتاح اليوم
+:مثال
+:Suggested Page 21 
+:الطالب يختار
+Page 18
+.Page 18 عاد إلى Current Memorization Progress هذا ال يعين تلقائيًا أن• 
+• 
+12
+---PAGE BREAK---
+:وهنا يجب التفريق بني
+Forward Progress
+.حفظ جديد يطور موضع الطالب
+Repeat / Rehearsal
+.إعادة تسميع شيء محفوظ سابقًا
+.تلقائيًا Progress Pointer لذلك عند التعديل إلى موضع سابق، يجب أال يرتاجع
+Progress Update Logic .22
+:بعد إرسال التقرير
+Current Progress يكمل من Actual Range إذا كان
+.تقدم طبيعي→ 
+Current Progress يتجاوز Actual Range إذا كان
+.تحديث التقدم إلى أبعد موضع مكتمل صالح→ 
+Current Progress أقدم من Actual Range إذا كان
+.للخلف Progress يسجل كتسميع، لكن ال يرجع→ 
+The Gap Problem .23
+:مثال
+:Current Progress
+Page 20
+:الطالب يعدل التقرير ويسجل
+Page 25
+؟Page 25 هل نعترب أنه وصل إلى
+:ليس بالضرورة، ألن الصفحات
+24–21
+13
+---PAGE BREAK---
+.قد تكون غري مكتملة
+:لذلك ال يجب اعتبار
+.التقدم الحقيقي دائمًا = أبعد صفحة مت تسجيلها
+MVP Rule
+:Gap عند وجود
+.يتم حفظ التقرير
+.تلقائيًا عرب الفجوة Continuous Progress ال يتم تحريك
+:Page 25 يمكن اعتبار
+Completed Out of Sequence
+:Next Memorization بينما يبقى
+Page 21
+.هذا يمنع فساد منطق التقدم
+Continuous Progress .24
+:النظام يحتاج إلى مفهوم
+Continuous Memorization Frontier
+.وهو آخر موضع مت حفظ كل ما قبله في مسار الحفظ الحالي
+:مثال
+:Completed
+✓ Page 20
+✓ Page 21
+✗ Page 22
+✓ Page 23
+:Continuous Progress
+Page 21
+:Next Suggested
+Page 22 •
+ •
+14
+---PAGE BREAK---
+.Page 24 وليس
+Editing Previous Reports .25
+.إذا عدّل الطالب تقريرًا قديمًا، قد يوؤثر ذلك على التقدم الحالي
+:مثال
+.Page 21 قد سجل Report كان
+.Page 21 مث مت تعديله وإزالة
+.غري صحيح Progress إذا كانت التقارير التالية تعتمد عليه، قد يصبح
+Recommendation
+.يدويًا فقط Progress Pointer ال نحاول تحديث
+:يجب أن يكون النظام قادرًا على
+Recalculate Progress
+.من بيانات اإلنجاز الفعلية عند الحاجة
+.هذا أكرث أمانًا من االعتماد الكامل على قيمة واحدة قابلة للفساد
+Recommended Data Philosophy .26
+:يجب تخزين
+Source of Truth
+.التقارير الفعلية
+.المسجلة Quran Ranges
+Derived Data
+.Current Progress
+.Next Suggestion
+.Completion Percentage
+.يمكن إعادة حسابها Derived Dataالـ• 
+• 
+• 
+• 
+• 
+15
+---PAGE BREAK---
+Daily Student Experience .27
+:بعد اإلعداد األول، يدخل الطالب فريى
+تقرير اليوم
+الحفظ
+مقرتح تلقائيًا
+سورة البقرة
+21 الصفحة
+Y إلى X من اآلية
+] تعديل [
+المراجعة
+مقرتح تلقائيًا
+الحزب السادس
+] تعديل [
+بعد التسميع
+: أخطاء الحفظ0
+ :أخطاء المراجعة0
+ :سمّعت علىاخرت
+: مالحظات اختياري 
+] تسجيل التقرير [
+Core Architecture Principle .28
+:النظام يجب أال يكون
+Date-Based Schedule Engine
+:بل
+Progress-Based Recommendation Engine
+16
+---PAGE BREAK---
+ التاريخ يحدد متى تم التقرير.
+:لكن اإلنجاز الفعلي يحدد
+ماذا سيقرتح النظام بعد ذلك؟
+MVP Smart Engine Summary .29
+:في اإلصدار األول مسوؤول عن Engineالـ
+.معرفة نظام حفظ الطالب
+.معرفة آخر تقدم مستمر فعلي
+.حساب نطاق الحفظ التالي
+.معرفة نظام المراجعة
+.معرفة موضع دورة المراجعة
+.حساب نطاق المراجعة التالي
+.تجهزي التقرير تلقائيًا
+.السماح بالتعديل اليدوي
+.Planned vs Actual تسجيل
+.بعد اإلرسال Progress تحديث أو إعادة حساب
+Next Architecture Step .30
+:قبل تصميم قاعدة البيانات النهائية، يجب حسم ثالث نقاط
+المصحف المرجعي . 1
+أي طبعة ستكون المرجع األسايس للصفحات؟
+. صفحات604 — مصحف المدينة: التوصية
+تعريف نصف الصفحة. 2
+.موثوق يحدد حدود النصف األول والثاني لكل صفحة، أو اعتماد تقسيم محدد خاص بالمنتج Dataset يجب توفري
+من يحدد نظام الطالب؟. 3
+هل الطالب يختار نظامه بنفسه فقط، أم يستطيع المعلم أيضًا تعيني أو تعديل نظام الحفظ والمراجعة للطالب؟ 
+:التوصية المعمارية
+Teacher-Assigned Plans مع تصميم الصالحيات بحيث يمكن إضافة، MVPدعم ملكية اإلعدادات بواسطة الطالب في الـ
+.الحقًا دون إعادة بناء النظام. 1
+ .2
+ .3
+ .4
+ .5
+ .6
+ .7
+ .8
+ .9
+ .10
+17
+---PAGE BREAK---

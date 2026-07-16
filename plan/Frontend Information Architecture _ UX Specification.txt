@@ -1,0 +1,786 @@
+Frontend Information Architecture & UX
+Specification
+Quran Daily Reporting Platform — MVP
+UX Vision .1
+:المنصة يجب أال تشعر المستخدم بأنها
+.نظام إدارة مدريس معقد
+.Spreadsheet
+.لوحة إدارية ثقيلة
+:التجربة األساسية يجب أن تكون
+.هادئة، واضحة، سريعة، ومريحة لالستخدام اليومي 
+:الطالب غالبًا سيدخل كل يوم لتنفيذ مهمة واحدة
+.تسجيل تقرير اليوم
+.لذلك يجب أن يصل إليها بأقل عدد ممكن من الخطوات
+Product Experience Principles .2
+Principle 1 — Today First
+:أهم شيء للطالب هو
+ماذا عليّ اليوم؟ 
+لذلك الصفحة الرئيسية للطالب هي صفحة اليوم.
+Principle 2 — Pre-filled by Default
+.فارغ Form ال يبدأ الطالب من
+:النظام يجهز
+.الحفظ
+.المراجعة
+:والطالب• 
+• 
+• 
+• 
+• 
+1
+---PAGE BREAK---
+.يسجل النتيجة → يعدّل عند الحاجة → يراجع
+Principle 3 — Progressive Disclosure
+.ال نعرض جميع الخيارات مرة واحدة
+.الوضع االفرتايض بسيط
+:التفاصيل المتقدمة تظهر فقط عند
+تعديل
+Principle 4 — Mobile First
+.االستخدام اليومي غالبًا سيكون من الهاتف
+:لذلك
+.األزرار كبرية
+.الحقول قليلة
+.ال توجد جداول معقدة للطالب
+.أهم إجراء واضح دائمًا
+Main User Roles .3
+Student Experience
+:الطالب يحتاج إلى
+.اليوم
+.تقاريره
+.نظام الحفظ والمراجعة
+.الحلقات
+Teacher Experience
+:المعلم يحتاج إلى
+.ملخص اليوم
+.الطالب
+.التقارير
+.تفاصيل كل طالب
+.إدارة الحلقة• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+2
+---PAGE BREAK---
+Global Application Structure .4
+Public Website
+      ↓
+Authentication
+      ↓
+My Circles
+      ↓
+Selected Circle Workspace
+      │
+      ├── Student Experience
+      │
+      └── Teacher Experience
+:المستخدم قد يكون
+.طالبًا في حلقة
+.معلمًا في حلقة أخرى
+لذلك الواجهة تتغري حسب الدور داخل الحلقة الحالية.
+Public Pages .5
+Landing Page
+:الهدف
+.شرح المشكلة والحل بسرعة
+Sections
+.Hero
+كيف تعمل المنصة؟
+.للمعلم
+.للطالب
+.الممزيات األساسية
+.إلنشاء حساب CTA
+Primary CTA
+أنشئ حلقتك
+Secondary CTA
+انضم إلى حلقة• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+3
+---PAGE BREAK---
+Authentication .6
+Register
+.االسم
+.الربيد اإللكرتوني
+.كلمة المرور
+:بعد التسجيل
+ماذا تريد أن تفعل؟
+Options
+إنشاء حلقة
+:أو
+االنضمام إلى حلقة
+:ال نطلب من المستخدم اختيار
+Student Account / Teacher Account
+.ألن الدور مرتبط بالحلقة
+Join Circle Experience .7
+:الطالب يستطيع الدخول عن طريق
+.Invitation Link
+.Invitation Code
+Flow
+Open Invitation
+      ↓
+Circle Preview
+      ↓
+Join Circle
+      ↓
+Learning Setup
+      ↓
+Today Page •
+ •
+ •
+ •
+ •
+4
+---PAGE BREAK---
+Circle Preview
+:يعرض
+.اسم الحلقة
+.اسم المعلم
+.وصف مختصر
+:CTA
+االنضمام إلى الحلقة
+Student Onboarding .8
+:بعد االنضمام ألول مرة
+Step 1 — Current Memorization Position
+:السوؤال
+أين وصلت في الحفظ؟
+:الطالب يحدد
+.السورة
+.الصفحة
+.اآلية عند الحاجة
+Step 2 — Memorization System
+ما مقدار حفظك المعتاد؟
+:Cards
+.نصف صفحة
+.صفحة
+.مقدار مخصص
+Step 3 — Revision System
+ما مقدار مراجعتك المعتاد؟
+:Options
+.ربع حزب• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+5
+---PAGE BREAK---
+.نصف حزب
+.حزب
+.حزبان
+.جزء
+.مخصص
+Step 4 — Revision Cycle
+ما النطاق الذي تراجع منه؟
+:يحدد
+.البداية
+.النهاية
+.الموضع الحالي
+Step 5 — Confirmation
+:يعرض النظام
+نظامك
+الحفظ
+.صفحة يوميًا
+المراجعة
+.حزب في كل مرة
+دورة المراجعة
+.10  إلى الجزء1 من الجزء
+:CTA
+ابدأ
+Student Navigation .9
+:Mobile Bottom Navigation
+اليوم
+تقاريري• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+6
+---PAGE BREAK---
+الحلقة
+اإلعدادات
+:Desktop
+.بنفس العناصر Sidebar
+Student Home = Today Page .10
+.هذه أهم شاشة في المنتج
+:الصفحة يجب أن تجيب فورًا
+ماذا سأسمّع اليوم؟
+Today Page — Initial State .11
+:Header
+السالم عليكم، عمر
+:Subtext
+ يوليو13 تقرير االثنين،
+:مث
+Progress Summary
+:عرض بسيط
+الحفظ الحالي 
+20 الصفحة — سورة البقرة
+المراجعة الحالية
+الحزب الخامس
+.MVPمعقدة في الـ Charts بدون
+7
+---PAGE BREAK---
+Daily Report Main Structure .12
+:ين رئيسينيCard الصفحة تحتوي على
+الحفظ — Card 1
+المراجعة — Card 2
+:مث
+معلومات التسميع
+:مث
+Submit Action
+Memorization Card .13
+Header
+حفظ اليوم
+:Badge
+مقرتح تلقائيًا
+Main Content
+سورة البقرة
+21 الصفحة
+141  إلى اآلية135 من اآلية
+Action
+تعديل
+Memorization Result .14
+:تحت المحتوى
+8
+---PAGE BREAK---
+هل أكملت الحفظ؟
+:Options
+.نعم، كامل
+.أكملت جزءًا منه
+.لم أسمّعه اليوم
+.سمّعت شيًا مختلفًا
+.هذا أفضل من إجبار الطالب مباشرة على تعديل اآليات
+Full Completion .15
+:إذا اختار
+نعم، كامل
+.Actual Rangeنفسه كـ Suggested Rangeيستخدم النظام الـ
+.ال تظهر حقول إضافية
+:مث
+عدد األخطاء
+:Stepper
+−   0   +
+Partial Completion .16
+:إذا اختار
+أكملت جزءًا منه
+:Modal أو Bottom Sheet يفتح
+ما الذي أكملته؟ 
+.يعرض البداية المقرتحة تلقائيًا
+:الطالب يحدد
+إلى اآلية• 
+• 
+• 
+• 
+9
+---PAGE BREAK---
+:مثال
+135 من اآلية
+] ▼ 138 [ إلى اآلية
+:مث
+تأكيد
+Different Memorization .17
+:إذا اختار
+سمّعت شيًا مختلفًا
+.يفتح محرر النطاق
+Fields
+.السورة
+.الصفحة
+.من آية
+.إلى آية
+:Preview مث يعرض
+Y إلى X من اآلية — 18 الصفحة — سورة البقرة
+:CTA
+استخدام هذا النطاق
+Not Completed .18
+:إذا اختار
+لم أسمّعه اليوم
+:يتم تسجيل
+CompletionStatus = NotCompleted •
+ •
+ •
+ •
+10
+---PAGE BREAK---
+:وال تظهر
+.األخطاء
+.المستمع
+.إال إذا احتجنا مالحظات
+Revision Card .19
+.نفس فلسفة الحفظ
+Header
+مراجعة اليوم
+:Badge
+مقرتح تلقائيًا
+Content
+:مثال
+الحزب السادس
+X آية — من سورة البقرة
+Y آية — إلى سورة البقرة
+Result
+.أكملتها
+.أكملت جزءًا منها
+.لم أراجع اليوم
+.راجعت شيًا مختلفًا
+Listener Experience .20
+:مكتمل Entry بعد كل
+سمّعت على مين؟
+:Quick Options
+.المعلم
+.طالب من الحلقة• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+11
+---PAGE BREAK---
+.شخص آخر
+:إذا اختار
+المعلم
+.يظهر معلمو الحلقة
+:إذا اختار
+طالب من الحلقة
+.Searchable List يظهر
+:إذا اختار
+شخص آخر
+.يكتب االسم
+Important UX Improvement .21
+:النظام يستطيع تذكر
+.آخر شخص سمّعت عليه
+:وفي اليوم التالي يظهر
+الشيخ أحمد: آخر اختيار
+.مع إمكانية تغيريه
+.هذا يقلل االحتكاك اليومي
+Mistakes Input .22
+.لعدد األخطاء Text Input ال نستخدم
+:نستخدم
+] − [   3   ] + [
+.مع إمكانية الضغط على الرقم وكتابته إذا كان العدد كبريًا• 
+12
+---PAGE BREAK---
+Separate Counts
+.أخطاء الحفظ
+.أخطاء المراجعة
+Notes .23
+:المالحظات تكون
+اختيارية
+.وال تظهر كمساحة كبرية افرتاضيًا
+:Button
+إضافة مالحظة+ 
+.Text Area وعند الضغط يظهر
+Sticky Submit Area .24
+:على الهاتف
+.زر اإلرسال يبقى واضحًا أسفل الصفحة
+Before Completion
+راجع بيانات التقرير
+Ready
+إرسال تقرير اليوم
+Pre-Submission Summary .25
+:صغري Summary قبل اإلرسال يمكن عرض
+الحفظ
+✓  كاملة21 الصفحة
+3 أخطاء
+المراجعة
+✓ الحزب السادس• 
+• 
+13
+---PAGE BREAK---
+5 أخطاء
+المستمع
+الشيخ أحمد
+:CTA
+تأكيد وإرسال
+Success State .26
+:بعد اإلرسال
+Success Screen
+تم تسجيل تقرير اليوم
+:Summary مث
+.الحفظ
+.المراجعة
+.مجموع األخطاء
+.وقت اإلرسال
+:Actions
+عرض التقرير
+العودة للرئيسية
+.MVPمبالغًا فيها في الـ Gamification ال نحتاج
+Already Submitted Today .27
+:إذا عاد الطالب بعد اإلرسال
+:إلى Today Page تتحول
+تم إرسال تقرير اليوم
+.Read-Only ويظهر التقرير
+:Actions
+.عرض التفاصيل• 
+• 
+• 
+• 
+• 
+14
+---PAGE BREAK---
+.تعديل التقرير
+.إذا كان التعديل مسموحًا
+Student Reports Page .28
+Header
+تقاريري 
+Default View
+:بسيطة Timeline
+ يوليو13
+21 الصفحة: الحفظ
+6 الحزب: المراجعة
+8 :األخطاء
+ م9:32 تم اإلرسال
+Report Details .29
+:يعرض
+الحفظ
+.المقرتح
+.الفعلي
+.األخطاء
+.المستمع
+المراجعة
+.المقرتح
+.الفعلي
+.األخطاء
+.المستمع• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+15
+---PAGE BREAK---
+المالحظات
+Submission Information
+Teacher Navigation .30
+نظرة عامة
+الطالب
+التقارير
+إعدادات الحلقة
+Teacher Dashboard .31
+:السوؤال األسايس
+من أرسل اليوم ومن لم يرسل؟
+Top Summary
+30     إجمالي الطالب
+22      أرسلوا اليوم
+8          لم يرسلوا
+Daily Student Status List .32
+.Rows أو Cards بدل جدول ضخم على الهاتف، نستخدم
+Student Row
+أحمد محمد
+:Badge
+أرسل التقرير
+21 الصفحة: الحفظ
+6 الحزب: المراجعة
+16
+---PAGE BREAK---
+4 :األخطاء
+ م8:45 :وقت اإلرسال
+Missing Student
+محمد علي 
+:Badge
+لم يرسل
+.Attendance Record ال نحتاج إنشاء
+.الحالة محسوبة من عدم وجود تقرير
+Dashboard Filters .33
+Date
+←  13 2026 →  يوليو
+Status
+.الكل
+.أرسل
+.لم يرسل
+Search
+.البحث باسم الطالب
+Teacher Report Inspection .34
+:عند الضغط على طالب
+:يفتح
+Student Daily Report
+:Header
+.اسم الطالب• 
+• 
+• 
+• 
+17
+---PAGE BREAK---
+.التاريخ
+.وقت اإلرسال
+:مث
+الحفظ
+المقرتح
+Page 21
+الفعلي 
+Page 21 — First Half
+األخطاء
+3
+المراجعة
+.نفس البنية
+Listener
+.من استمع إليه
+Notes
+.المالحظات
+Student Overview .35
+:Teacher Workspace صفحة الطالب داخل
+Header
+.االسم
+.تاريخ االنضمام
+Current System
+الحفظ
+.صفحة يوميًا
+المراجعة• 
+• 
+• 
+• 
+18
+---PAGE BREAK---
+.حزب
+Current Progress
+.الموضع الحالي
+Recent Reports
+.آخر التقارير
+Teacher Reports Page .36
+:تعرض جميع التقارير مع
+.Date Filter
+.Student Filter
+.Submission Status
+.معقدة Analytics يجب تجنب بناء MVPلكن في الـ
+:الهدف
+.الوصول السريع إلى التقرير المطلوب
+Circle Settings .37
+:المعلم يستطيع
+.تعديل اسم الحلقة
+.تعديل الوصف
+.روؤية كود الدعوة
+.نسخ رابط الدعوة
+.إنشاء كود جديد
+.إدارة الطالب
+Empty States .38
+No Circle
+.لم تنضم إلى أي حلقة بعد
+:Actions
+إنشاء حلقة• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+19
+---PAGE BREAK---
+االنضمام بكود
+No Reports
+.لم تسجل أي تقرير بعد
+Teacher — No Students
+.لم ينضم أي طالب إلى الحلقة بعد
+:CTA
+نسخ رابط الدعوة
+Error States .39
+.يجب أن تكون الرسائل مفهومة
+:بدل
+INVALID_QURAN_RANGE
+:نعرض
+.راجع السورة واآليات وحاول مرة أخرى. نطاق الحفظ الذي اخرتته غري صالح
+:بدل
+ASSIGNMENT_STALE
+:نعرض
+.قمنا بتحديث تقرير اليوم بأحدث البيانات. مت تحديث تقدمك منذ فتح الصفحة
+RTL Design .40
+:المنصة يجب أن تكون
+RTL First
+.مث قلبه LTR وليس تصميم
+20
+---PAGE BREAK---
+:يجب مراعاة
+.Navigationاتجاه الـ
+.ترتيب األيقونات
+.األسهم
+.Steppersالـ
+.Date Pickers
+.األرقام
+.أسماء السور واآليات
+Visual Direction .41
+:الهوية المقرتحة
+Modern Spiritual Minimalism
+:منصة قرآنية حديثة وهادئة، دون االعتماد المبالغ فيه على
+.األخضر التقليدي
+.الزخارف الثقيلة
+.صور المساجد في كل شاشة
+Visual Personality .42
+:المنتج يجب أن يشعر بأنه
+.هادئ
+.موثوق
+.إنساني
+.منظم
+.معاصر
+:مع استخدام الزخارف اإلسالمية بشكل
+Subtle
+.وليس كعنصر بصري مسيطر
+Suggested Design System Direction .43
+Background
+.درجات دافة وهادئة بدل األبيض الحاد• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+21
+---PAGE BREAK---
+Primary
+:لون عميق وهادئ مثل
+.Deep Teal
+.Midnight Blue
+.Muted Emerald
+Accent
+:لون دافئ خفيف مثل
+.Sand
+.Soft Gold
+Typography
+.خط عربي واضح جدًا للواجهة
+:وخط مناسب وممزي عند عرض
+.أسماء السور
+.النصوص القرآنية مستقبالً 
+Component System .44
+:المكونات األساسية
+.App Shell
+.Sidebar
+.Mobile Bottom Navigation
+.Cards
+.Status Badges
+.Quran Range Card
+.Mistakes Stepper
+.Listener Selector
+.Quran Range Picker
+.Student Status Row
+.Date Navigator
+.Empty State
+.Confirmation Sheet
+.Success State
+The Most Important UX Metric .45
+:لتجربة الطالب Metric أهم• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+22
+---PAGE BREAK---
+Time to Submit Daily Report
+:بعد اإلعداد األول، الهدف أن يستطيع الطالب الذي نفذ المطلوب كما هو مقرتح تسجيل تقريره في
+.أقل من دقيقة
+.المستخدم اليومي ال يجب أن يعيد إدخال معلومات يعرفها النظام بالفعل
+MVP Screen Inventory .46
+Public
+.Landing Page
+.Login
+.Register
+Shared
+.My Circles
+.Join Circle
+.Circle Switcher
+.Profile
+Student
+.Learning Setup
+.Today
+.Edit Quran Range
+.Submit Confirmation
+.Success State
+.Reports History
+.Report Details
+.Learning Settings
+Teacher
+.Dashboard
+.Students
+.Student Overview
+.Report Details
+.Reports
+.Circle Settings
+.Invitation Management .1
+ .2
+ .3
+ .1
+ .2
+ .3
+ .4
+ .1
+ .2
+ .3
+ .4
+ .5
+ .6
+ .7
+ .8
+ .1
+ .2
+ .3
+ .4
+ .5
+ .6
+ .7
+23
+---PAGE BREAK---
+Final UX Principle .47
+.معقد Smart Engineالـ
+:لكن تجربة الطالب يجب أن تكون
+افتح
+↓  
+راجع اقتراح اليوم
+↓  
+سجّل النتيجة
+↓  
+أرسل
+:وتجربة المعلم
+افتح
+↓  
+شاهد من أرسل ومن لم يرسل
+↓  
+افتح الطالب
+↓  
+راجع التفاصيل
+.إذا احتاج الطالب أو المعلم إلى فهم النظام التقين حىت يستخدم المنتج، فالتجربة فشلت
+.غري مرئية خلف تجربة يومية بسيطة جدًا Architectureنجاح المنتج هو أن تكون كل هذه الـ
+24
+---PAGE BREAK---

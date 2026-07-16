@@ -4,17 +4,29 @@
   --color-primary-50: #f0fdf4;
   --color-primary-100: #dcfce7;
   --color-primary-200: #bbf7d0;
+  --color-primary-250: #94efc3;
+  --color-primary-400: #34d399;
   --color-primary-500: #10b981;
   --color-primary-600: #059669;
+  --color-primary-650: #048760;
   --color-primary-700: #047857;
   --color-primary-800: #065f46;
+  --color-primary-850: #065740;
   --color-primary-900: #064e3b;
+  --color-primary-950: #022c22;
 
   --color-accent-50: #fffbeb;
   --color-accent-100: #fef3c7;
   --color-accent-500: #f59e0b;
   --color-accent-600: #d97706;
   --color-accent-700: #b45309;
+
+  /* Odd-increment stone shades used across the app (Tailwind ships only even steps) */
+  --color-stone-150: #eeedec;
+  --color-stone-250: #dedcda;
+  --color-stone-450: #908985;
+  --color-stone-550: #67625d;
+  --color-stone-850: #221f1d;
 
   --font-sans: var(--font-arabic), system-ui, sans-serif;
   --font-display: var(--font-display), system-ui, sans-serif;

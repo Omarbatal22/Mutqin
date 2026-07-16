@@ -1,0 +1,891 @@
+Database Architecture & ERD Specification
+Smart Quran Memorization & Daily Reporting Platform
+1. Database Design Goals
+تصميم قاعدة البيانات يجب أن يحقق:
+دعم أكرث من حلقة لكل مستخدم.
+إمكانية أن يكون المستخدم طالبًا في حلقة ومعلمًا في أخرى.
+حفظ بيانات القرآن بشكل Structured.
+دعم الحفظ بالصفحة ونصف الصفحة والنطاق المخصص.
+دعم المراجعة بالربع والحزب والجزء.
+الفصل بني المقرتح وما مت فعليًا.
+إعادة حساب تقدم الطالب عند الحاجة.
+دعم التوسع مستقبً للخطط واالختبارات والحضور واإلحصائيات .
+2. Core Domain Model
+النظام ينقسم إلى خمسة Domains:
+Identity
+المستخدمون والحسابات.
+Circles
+الحلقات والعضويات.
+Quran Reference
+البيانات المرجعية الثابتة للمصحف.
+Student Progression
+إعدادات ومسار الحفظ والمراجعة.
+Daily Reporting
+التقارير اليومية واإلنجاز الفعلي. •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+1
+---PAGE BREAK---
+3. Users
+User
+يمثل حساب المستخدم.
+Fields
+Id
+FullName
+Email
+PasswordHash
+Status
+CreatedAt
+UpdatedAt
+Important Rule
+ال يوجد:
+User.Role = Student
+أو:
+User.Role = Teacher
+الدور مرتبط بعضوية الحلقة.
+4. Circles
+Circle
+يمثل حلقة التحفيظ.
+Fields
+Id
+Name
+Description
+OwnerId
+Status
+CreatedAt
+UpdatedAt• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+2
+---PAGE BREAK---
+5. Circle Memberships
+CircleMembership
+يمثل عقة المستخدم بالحلقة.
+Fields
+Id
+CircleId
+UserId
+Role
+Status
+JoinedAt
+CreatedAt
+UpdatedAt
+Role
+Teacher
+Student
+Future Roles
+AssistantTeacher
+Supervisor
+Constraint
+يجب أن يكون:
+CircleId + UserId = Unique
+6. Invitations
+CircleInvitation
+Fields
+Id
+CircleId
+Code
+CreatedByUserId
+Status
+ExpiresAt
+MaxUses
+CurrentUses
+CreatedAt• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+3
+---PAGE BREAK---
+يمكن استخدام نفس البنية إلنشاء:
+Invitation Code.
+Invitation Link.
+7. Quran Reference Domain
+هذه البيانات تعترب Reference Data  وليست بيانات مستخدمني.
+QuranEdition
+ألن النظام يجب أال يفرتض أن جميع المصاحف لها نفس ترقيم الصفحات.
+Fields
+Id
+Name
+PageCount
+IsDefault
+MVP
+Madinah Mushaf — 604 Pages
+Surah
+Fields
+Id
+Number
+ArabicName
+AyahCount
+Ayah
+Fields
+Id
+SurahId
+AyahNumber
+GlobalSequence
+Constraints
+SurahId + AyahNumber = Unique• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+4
+---PAGE BREAK---
+GlobalSequence = Unique
+QuranPage
+Fields
+Id
+QuranEditionId
+PageNumber
+StartAyahId
+EndAyahId
+Constraint
+QuranEditionId + PageNumber = Unique
+Juz
+Fields
+Id
+Number
+StartAyahId
+EndAyahId
+Hizb
+Fields
+Id
+Number
+StartAyahId
+EndAyahId
+RubAlHizb
+Fields
+Id
+Number
+HizbId
+StartAyahId
+EndAyahId• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+5
+---PAGE BREAK---
+8. Quran Segments
+QuranSegment
+هذا من أهم الجداول في النظام.
+يمثل وحدة جاهزة يمكن استخدامها في الحفظ أو المراجعة.
+Fields
+Id
+QuranEditionId
+SegmentType
+ReferenceNumber
+StartAyahId
+EndAyahId
+ParentSegmentId
+SequenceOrder
+Segment Types
+Page
+HalfPage
+Rub
+HalfHizb
+Hizb
+Juz
+Custom
+Examples
+Page 20
+Start → Ayah X
+End → Ayah Y
+Page 20 — First Half
+Start → Ayah X
+End → Ayah Z
+Page 20 — Second Half
+Start → Ayah Z+1
+End → Ayah Y• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+6
+---PAGE BREAK---
+9. Why QuranSegment Is Important
+بدل كتابة Logic مختلف لكل:
+صفحة.
+نصف صفحة.
+حزب.
+ربع.
+جزء.
+يمكن للـProgression Engine التعامل مع مفهوم موحد:
+Quran Range / Segment
+وبالتالي:
+Current Segment → Next Segment
+هذا يبسط النظام بشكل كبري.
+10. Student Learning Profile
+StudentLearningProfile
+يمثل إعدادات الطالب داخل حلقة معينة.
+Fields
+Id
+CircleMembershipId
+QuranEditionId
+Status
+CreatedAt
+UpdatedAt
+Constraint
+CircleMembershipId = Unique
+كل عضوية طالب لها Learning Profile واحد. •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+7
+---PAGE BREAK---
+11. Memorization Configuration
+MemorizationConfiguration
+Fields
+Id
+StudentLearningProfileId
+Mode
+StartingAyahId
+CurrentFrontierAyahId
+Status
+CreatedAt
+UpdatedAt
+Mode
+HalfPage
+FullPage
+Custom
+Important
+CurrentFrontierAyahId  يعترب:
+Cached / Derived Value
+وليس المصدر الوحيد للحقيقة.
+يمكن إعادة حسابه من التقارير.
+12. Revision Configuration
+RevisionConfiguration
+Fields
+Id
+StudentLearningProfileId
+Mode
+CycleStartAyahId
+CycleEndAyahId
+CurrentPositionAyahId
+Status
+CreatedAt
+UpdatedAt• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+8
+---PAGE BREAK---
+Mode
+Rub
+HalfHizb
+Hizb
+TwoHizbs
+Juz
+Custom
+مثال
+Cycle:
+Juz 1 → Juz 5
+Current Position:
+بداية الحزب الرابع.
+13. Daily Assignment
+DailyAssignment
+يمثل ما جهزه النظام تلقائيًا للطالب.
+Fields
+Id
+StudentLearningProfileId
+AssignmentDate
+Status
+GeneratedAt
+CreatedAt
+UpdatedAt
+Status
+Generated
+Modified
+Submitted
+Expired
+Constraint
+StudentLearningProfileId + AssignmentDate = Unique• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+9
+---PAGE BREAK---
+14. Assignment Items
+بدل وضع الحفظ والمراجعة كأعمدة داخل DailyAssignment ،نستخدم Items.
+DailyAssignmentItem
+Fields
+Id
+DailyAssignmentId
+Type
+SuggestedStartAyahId
+SuggestedEndAyahId
+SuggestedSegmentId
+GenerationSource
+CreatedAt
+Type
+Memorization
+Revision
+GenerationSource
+Automatic
+Manual
+FutureTeacherAssignment
+هذا التصميم يسمح مستقبً بإضافة :
+أكرث من مراجعة.
+واجب إضافي.
+Teacher Assigned Task.
+15. Daily Report
+DailyReport
+يمثل التقرير الذي أرسله الطالب.
+Fields
+Id
+StudentLearningProfileId
+DailyAssignmentId
+ReportDate
+Status
+GeneralNotes• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+10
+---PAGE BREAK---
+SubmittedAt
+UpdatedAt
+CreatedAt
+Status
+Draft
+Submitted
+Updated
+Constraint
+StudentLearningProfileId + ReportDate = Unique
+16. Report Entries
+التقرير نفسه ال يحتوي مباشرة على أعمدة الحفظ والمراجعة.
+نستخدم:
+DailyReportEntry
+Fields
+Id
+DailyReportId
+Type
+PlannedStartAyahId
+PlannedEndAyahId
+ActualStartAyahId
+ActualEndAyahId
+MistakesCount
+Notes
+CompletionStatus
+CreatedAt
+UpdatedAt
+Type
+Memorization
+Revision
+CompletionStatus
+Completed
+PartiallyCompleted
+NotCompleted
+Changed• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+11
+---PAGE BREAK---
+17. Why Planned and Actual Are Stored Together
+مثال:
+Planned
+Page 21 كاملة.
+Actual
+النصف األول فقط.
+التقرير يحفظ:
+PlannedStart → PlannedEnd
+و:
+ActualStart → ActualEnd
+وبذلك يمكن معرفة الفرق بني:
+ما كان متوقعًا.
+و:
+ما حدث فعليًا.
+18. Recitation Listener
+نحتاج إلى تسجيل:
+سمّعت على مني؟
+ReportRecitation
+Fields
+Id
+DailyReportId
+ListenerType
+ListenerMembershipId
+ExternalListenerName
+CreatedAt• 
+• 
+• 
+• 
+• 
+• 
+12
+---PAGE BREAK---
+ListenerType
+Teacher
+Student
+External
+إذا كان الشخص داخل الحلقة:
+ListenerMembershipId
+إذا كان خارج النظام:
+ExternalListenerName
+19. Important Improvement
+األفضل مستقبً أن يكون  المستمع مرتبطًا بالـ Report Entry  وليس التقرير كله.
+لماذا؟
+ألن الطالب قد:
+يسمّع الحفظ على الشيخ.
+يسمّع المراجعة على طالب آخر.
+لذلك التصميم األقوى:
+ReportEntryRecitation
+Id
+DailyReportEntryId
+ListenerType
+ListenerMembershipId
+ExternalListenerName
+وبذلك يمكن أن يكون لكل جزء من التقرير مستمع مختلف.
+Recommendation
+اعتماد هذا التصميم من البداية.
+20. Core Relationships
+User
+  │
+  └── CircleMembership• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+13
+---PAGE BREAK---
+          │
+          ├── Circle
+          │
+          └── StudentLearningProfile
+                    │
+                    ├── MemorizationConfiguration
+                    │
+                    ├── RevisionConfiguration
+                    │
+                    ├── DailyAssignment
+                    │       │
+                    │       └── DailyAssignmentItem
+                    │
+                    └── DailyReport
+                            │
+                            └── DailyReportEntry
+                                    │
+                                    └── ReportEntryRecitation
+Quran Reference:
+QuranEdition
+    │
+    ├── QuranPage
+    │
+    └── QuranSegment
+Surah
+    │
+    └── Ayah
+Ayah
+    ├── QuranPage Boundaries
+    ├── QuranSegment Boundaries
+    ├── Assignment Boundaries
+    └── Report Entry Boundaries
+21. Daily Report Example
+طالب نظامه:
+حفظ: صفحة يوميًا.
+مراجعة:  حزب يوميًا.
+النظام ينشئ:
+14
+---PAGE BREAK---
+DailyAssignment
+Date:
+14 July 2026
+Assignment Item 1
+Type:
+Memorization
+Suggested:
+Page 21
+Assignment Item 2
+Type:
+Revision
+Suggested:
+Hizb 6
+بعد التسميع، الطالب يسجل:
+Report Entry 1
+Type:
+Memorization
+Planned:
+Page 21 Full
+Actual:
+Page 21 First Half
+Mistakes:
+3
+Listener:
+15
+---PAGE BREAK---
+Teacher Ahmed
+Report Entry 2
+Type:
+Revision
+Planned:
+Hizb 6
+Actual:
+Hizb 6
+Mistakes:
+5
+Listener:
+Student Mohamed
+22. Progress Recalculation
+يجب أال يعتمد النظام بالكامل على:
+CurrentFrontierAyahId
+ألن التقارير القديمة قد يتم تعديلها.
+Source of Truth
+DailyReportEntry.ActualStartAyahId
++
+DailyReportEntry.ActualEndAyahId
+Recalculation Process
+عند الحاجة:
+الحصول على جميع Memorization Entries المكتملة.
+تحويلها إلى Quran Ranges.1. 
+2. 
+16
+---PAGE BREAK---
+ترتيبها.
+دمج النطاقات المتصلة.
+اكتشاف أي Gaps.
+حساب Continuous Frontier .
+تحديث Cached Progress.
+23. Important Technical Issue: Ayah-Level
+Precision
+إذا كان الطالب يحفظ نصف صفحة، قد ينتهي النصف بصريًا في منتصف آية طويلة .
+لو كان النظام يعتمد فقط على:
+StartAyahId → EndAyahId
+فلن يستطيع تمثيل هذا بدقة.
+لذلك لدينا خياران:
+MVP Simplification
+كل Range يبدأ وينتهي عند حدود آية كاملة.
+Advanced Model
+دعم:
+Ayah.
+Word.
+Line.
+Recommendation
+للـMVP:
+اعتماد حدود اآليات فقط.
+ال ندخل Word-Level أو Line-Level Tracking إال إذا أثبت االستخدام الحقيقي أن الطب يحتاجونه.
+24. Database Constraints
+يجب تطبيق Constraints مهمة:3. 
+4. 
+5. 
+6. 
+7. 
+• 
+• 
+• 
+17
+---PAGE BREAK---
+Membership
+Unique(CircleId, UserId)
+Student Profile
+Unique(CircleMembershipId)
+Daily Assignment
+Unique(StudentLearningProfileId, AssignmentDate)
+Daily Report
+Unique(StudentLearningProfileId, ReportDate)
+Quran Ayah
+Unique(SurahId, AyahNumber)
+Quran Page
+Unique(QuranEditionId, PageNumber)
+25. Indexing Strategy
+Indexes أساسية على:
+CircleMembership.CircleId
+CircleMembership.UserId
+DailyReport.StudentLearningProfileId
+DailyReport.ReportDate
+DailyReportEntry.DailyReportId
+DailyAssignment.AssignmentDate
+Ayah.GlobalSequence
+QuranSegment.SequenceOrder
+هذا مهم خصوصًا للـTeacher Dashboard.
+26. Teacher Dashboard Query Model
+ طالب، ال نريد تنفيذ عشرات االستعمات لمعرفة100 لو المعلم عنده:
+من أرسل؟
+من لم يرسل؟
+المنطق يكون: •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+18
+---PAGE BREAK---
+Active Students in Circle
+LEFT JOIN
+Daily Reports for Selected Date
+والنتيجة:
+Student Report Status
+Ahmed Submitted
+Omar Submitted
+Mohamed Not Submitted
+وبذلك تكون حالة:
+Not Submitted
+حالة محسوبة، وليس Record يتم إنشاوؤه يوميًا لكل طالب.
+27. Recommended MVP Database Tables
+Identity & Circles
+Users
+Circles
+CircleMemberships
+CircleInvitations
+Quran Reference
+QuranEditions
+Surahs
+Ayahs
+QuranPages
+QuranSegments
+Student Progression
+StudentLearningProfiles
+MemorizationConfigurations
+RevisionConfigurations
+Daily Assignment
+DailyAssignments• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+19
+---PAGE BREAK---
+DailyAssignmentItems
+Daily Reporting
+DailyReports
+DailyReportEntries
+ReportEntryRecitations
+28. Tables Not Needed Yet
+ال ننشئ اآلن:
+Attendance
+Exams
+Certificates
+Achievements
+Points
+Notifications
+StudyPlans
+ParentAccounts
+Organizations
+Payments
+لكن التصميم الحالي يسمح بإضافتها كـModules مستقلة الحقًا.
+29. Critical Architectural Recommendation
+يوجد فرق بني:
+Assignment
+ما كان مطلوبًا أو مقرتحًا.
+Report
+ما حدث بالفعل.
+Progress
+النتيجة المحسوبة من اإلنجاز الفعلي.
+يجب أال يتم دمج الثثة في Table واحدة.
+النموذج الصحيح:
+Configuration• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+20
+---PAGE BREAK---
+↓
+Assignment
+↓
+Actual Report
+↓
+Progress Calculation
+↓
+Next Assignment
+هذه هي الدورة األساسية للـSmart Progression Engine.
+30. Final Domain Flow
+Student Configuration
+        ↓
+Progression Engine
+        ↓
+Daily Assignment
+        ↓
+Student Reviews / Modifies
+        ↓
+Daily Report
+        ↓
+Actual Report Entries
+        ↓
+Progress Recalculation
+        ↓
+Next Suggested Assignment
+هذا التصميم يجعل النظام الحالي قادرًا على حل مشكلة التقارير اليومية، وفي الوقت نفسه يضع أساسًا حقيقيًا إلضافة:
+خطط الحفظ.
+Teacher Assigned Plans.
+Progress Analytics.
+اختبارات.
+الزتام الطالب بالخطة.
+إحصائيات األخطاء.
+مراجعة ذكية.
+توصيات مستقبلية. •
+ •
+ •
+ •
+ •
+ •
+ •
+ •
+21
+---PAGE BREAK---
+دون إعادة بناء الـCore Domain من البداية.
+22
+---PAGE BREAK---

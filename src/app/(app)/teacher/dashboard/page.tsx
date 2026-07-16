@@ -5,17 +5,23 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
 import { CircleSwitcher } from "@/components/circle-switcher"
+import { WeeklyReportGrid } from "@/components/teacher/weekly-report-grid"
 import { ReportSummary } from "@/components/reports/report-summary"
 import type { StructuredReport } from "@/lib/reports/types"
-import { 
-  Users, 
-  CheckCircle2, 
-  AlertCircle, 
-  Percent, 
+import { formatRange } from "@/lib/quran"
+import {
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  Percent,
   Calendar,
   Layers,
   Eye,
-  Plus
+  Plus,
+  Sparkles,
+  Settings2,
+  List,
+  CalendarDays,
 } from "lucide-react"
 
 interface DashboardProfile {
@@ -32,11 +38,11 @@ interface DashboardMembership {
 export const dynamic = 'force-dynamic'
 
 interface TeacherDashboardProps {
-  searchParams: Promise<{ circleId?: string; filter?: string }>
+  searchParams: Promise<{ circleId?: string; filter?: string; view?: string }>
 }
 
 export default async function TeacherDashboardPage({ searchParams }: TeacherDashboardProps) {
-  const { circleId, filter = "all" } = await searchParams
+  const { circleId, filter = "all", view = "daily" } = await searchParams
   const supabase = await createClient()
 
   // Get user session
@@ -87,7 +93,69 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
     .filter((p): p is DashboardProfile => !!p)
 
   // Fetch today's reports for this circle
-  const todayStr = new Date().toISOString().split("T")[0]
+  const { data: circle } = activeCircleId
+    ? await supabase
+        .from("circles")
+        .select("timezone")
+        .eq("id", activeCircleId)
+        .single()
+    : { data: null }
+
+  const circleTimezone = circle?.timezone ?? "Africa/Cairo"
+  const todayStr = (() => {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: circleTimezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    const parts = fmt.formatToParts(new Date())
+    const m = parts.find((p) => p.type === "month")?.value
+    const d = parts.find((p) => p.type === "day")?.value
+    const y = parts.find((p) => p.type === "year")?.value
+    return `${y}-${m}-${d}`
+  })()
+
+  // Compute the current week (Saturday → Friday) in the circle's local timezone.
+  // Build a stable UTC anchor from the local date parts so DST shifts can't move it.
+  const [ty, tm, td] = todayStr.split("-").map(Number)
+  const todayAnchor = new Date(Date.UTC(ty, tm - 1, td))
+  // JS getUTCDay(): Sun=0…Sat=6. Days since the most recent Saturday:
+  const daysSinceSaturday = (todayAnchor.getUTCDay() + 1) % 7
+  const weekDayNameFmt = new Intl.DateTimeFormat("ar-EG", {
+    timeZone: "UTC",
+    weekday: "long",
+  })
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(todayAnchor)
+    d.setUTCDate(todayAnchor.getUTCDate() - daysSinceSaturday + i)
+    const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
+    return {
+      date: iso,
+      dayName: weekDayNameFmt.format(d),
+      dayNum: String(d.getUTCDate()),
+    }
+  })
+  const weekStart = weekDays[0].date
+  const weekEnd = weekDays[6].date
+
+  // Fetch this week's reports (only when the weekly view is active)
+  const { data: weekReports } = activeCircleId && view === "week"
+    ? await supabase
+        .from("daily_reports")
+        .select("student_id, report_date, total_mistakes")
+        .eq("circle_id", activeCircleId)
+        .gte("report_date", weekStart)
+        .lte("report_date", weekEnd)
+    : { data: [] }
+
+  // student_id -> report_date -> { mistakes }
+  const weekCellMap: Record<string, Record<string, { mistakes: number }>> = {}
+  for (const r of weekReports || []) {
+    const byDate = (weekCellMap[r.student_id] ??= {})
+    byDate[r.report_date] = { mistakes: r.total_mistakes ?? 0 }
+  }
+
   const { data: todayReports } = activeCircleId
     ? await supabase
         .from("daily_reports")
@@ -96,14 +164,41 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
         .eq("report_date", todayStr)
     : { data: [] }
 
+  // Fetch today's assignments (planned)
+  const { data: todayAssignments } = activeCircleId
+    ? await supabase
+        .from("daily_assignments")
+        .select("student_id, hifz_surah, hifz_from_ayah, hifz_to_ayah, revision_ranges, status")
+        .eq("circle_id", activeCircleId)
+        .eq("assignment_date", todayStr)
+    : { data: [] }
+
+  // Check which students have memorization settings configured
+  const { data: settingsRows } = activeCircleId
+    ? await supabase
+        .from("memorization_settings")
+        .select("user_id")
+        .eq("circle_id", activeCircleId)
+    : { data: [] }
+  const studentsWithSettings = new Set((settingsRows || []).map((s) => s.user_id))
+
   // Map students to their report status
-  const studentsWithStatus = students.map(student => {
-    const report = todayReports?.find(r => r.student_id === student.id)
+  const studentsWithStatus = students.map((student) => {
+    const report = todayReports?.find((r) => r.student_id === student.id)
+    const assignment = todayAssignments?.find((a) => a.student_id === student.id) ?? null
+    const setupRequired = !studentsWithSettings.has(student.id)
     return {
       ...student,
       submitted: !!report,
       reportDetails: report || null,
-      submissionTime: report ? new Date(report.created_at).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' }) : null
+      assignment,
+      setupRequired,
+      submissionTime: report
+        ? new Date(report.created_at).toLocaleTimeString("ar-EG", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : null,
     }
   })
 
@@ -111,12 +206,15 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
   const totalStudents = students.length
   const submittedToday = todayReports?.length || 0
   const notSubmittedToday = totalStudents - submittedToday
-  const submissionRate = totalStudents > 0 ? Math.round((submittedToday / totalStudents) * 100) : 0
+  const setupRequiredCount = studentsWithStatus.filter((s) => s.setupRequired).length
+  const submissionRate =
+    totalStudents > 0 ? Math.round((submittedToday / totalStudents) * 100) : 0
 
   // Apply filters
-  const filteredStudents = studentsWithStatus.filter(s => {
+  const filteredStudents = studentsWithStatus.filter((s) => {
     if (filter === "submitted") return s.submitted
     if (filter === "not_submitted") return !s.submitted
+    if (filter === "setup_required") return s.setupRequired
     return true
   })
 
@@ -235,42 +333,93 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
               <CardHeader className="pb-3 border-b border-stone-100 dark:border-stone-900/50 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
                 <div>
                   <CardTitle className="text-base font-bold">طلاب حلقة {activeCircle?.name}</CardTitle>
-                  <CardDescription>عرض تفصيلي لحالة تسليم التقارير اليومية</CardDescription>
+                  <CardDescription>
+                    {view === "week"
+                      ? "متابعة أسبوعية لتسليم التقارير (السبت → الجمعة)"
+                      : "عرض تفصيلي لحالة تسليم التقارير اليومية"}
+                  </CardDescription>
                 </div>
-                {/* Filters */}
-                <div className="flex gap-1 bg-stone-50 dark:bg-stone-900 p-1 rounded-xl border border-stone-200/50 dark:border-stone-850">
-                  <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=all`}>
-                    <Button 
-                      variant={filter === "all" ? "primary" : "ghost"} 
-                      size="sm" 
-                      className={`px-3 py-1 text-xs font-semibold ${filter !== "all" ? "hover:bg-stone-100" : ""}`}
-                    >
-                      الكل ({totalStudents})
-                    </Button>
-                  </Link>
-                  <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=submitted`}>
-                    <Button 
-                      variant={filter === "submitted" ? "primary" : "ghost"} 
-                      size="sm" 
-                      className={`px-3 py-1 text-xs font-semibold ${filter !== "submitted" ? "hover:bg-stone-100" : ""}`}
-                    >
-                      أرسلوا ({submittedToday})
-                    </Button>
-                  </Link>
-                  <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=not_submitted`}>
-                    <Button 
-                      variant={filter === "not_submitted" ? "primary" : "ghost"} 
-                      size="sm" 
-                      className={`px-3 py-1 text-xs font-semibold ${filter !== "not_submitted" ? "hover:bg-stone-100" : ""}`}
-                    >
-                      لم يرسلوا ({notSubmittedToday})
-                    </Button>
-                  </Link>
+
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                  {/* View toggle: daily vs weekly */}
+                  <div className="flex gap-1 bg-stone-50 dark:bg-stone-900 p-1 rounded-xl border border-stone-200/50 dark:border-stone-850">
+                    <Link href={`/teacher/dashboard?circleId=${activeCircleId}&view=daily&filter=${filter}`}>
+                      <Button
+                        variant={view !== "week" ? "primary" : "ghost"}
+                        size="sm"
+                        className={`px-3 py-1 text-xs font-semibold flex items-center gap-1.5 ${view === "week" ? "hover:bg-stone-100" : ""}`}
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        يومي
+                      </Button>
+                    </Link>
+                    <Link href={`/teacher/dashboard?circleId=${activeCircleId}&view=week`}>
+                      <Button
+                        variant={view === "week" ? "primary" : "ghost"}
+                        size="sm"
+                        className={`px-3 py-1 text-xs font-semibold flex items-center gap-1.5 ${view !== "week" ? "hover:bg-stone-100" : ""}`}
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        أسبوعي
+                      </Button>
+                    </Link>
+                  </div>
+
+                  {/* Filters (daily view only) */}
+                  {view !== "week" && (
+                    <div className="flex gap-1 bg-stone-50 dark:bg-stone-900 p-1 rounded-xl border border-stone-200/50 dark:border-stone-850 flex-wrap">
+                      <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=all`}>
+                        <Button
+                          variant={filter === "all" ? "primary" : "ghost"}
+                          size="sm"
+                          className={`px-3 py-1 text-xs font-semibold ${filter !== "all" ? "hover:bg-stone-100" : ""}`}
+                        >
+                          الكل ({totalStudents})
+                        </Button>
+                      </Link>
+                      <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=submitted`}>
+                        <Button
+                          variant={filter === "submitted" ? "primary" : "ghost"}
+                          size="sm"
+                          className={`px-3 py-1 text-xs font-semibold ${filter !== "submitted" ? "hover:bg-stone-100" : ""}`}
+                        >
+                          أرسلوا ({submittedToday})
+                        </Button>
+                      </Link>
+                      <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=not_submitted`}>
+                        <Button
+                          variant={filter === "not_submitted" ? "primary" : "ghost"}
+                          size="sm"
+                          className={`px-3 py-1 text-xs font-semibold ${filter !== "not_submitted" ? "hover:bg-stone-100" : ""}`}
+                        >
+                          لم يرسلوا ({notSubmittedToday})
+                        </Button>
+                      </Link>
+                      {setupRequiredCount > 0 && (
+                        <Link href={`/teacher/dashboard?circleId=${activeCircleId}&filter=setup_required`}>
+                          <Button
+                            variant={filter === "setup_required" ? "primary" : "ghost"}
+                            size="sm"
+                            className={`px-3 py-1 text-xs font-semibold ${filter !== "setup_required" ? "hover:bg-stone-100" : ""}`}
+                          >
+                            يحتاج إعداداً ({setupRequiredCount})
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               
               <CardContent className="p-0">
-                {filteredStudents.length === 0 ? (
+                {view === "week" ? (
+                  <WeeklyReportGrid
+                    students={students}
+                    weekDays={weekDays}
+                    cellMap={weekCellMap}
+                    todayStr={todayStr}
+                  />
+                ) : filteredStudents.length === 0 ? (
                   <div className="text-center py-12 text-stone-400 text-sm">
                     لا يوجد طلاب يطابقون خيار الفلتر المختار.
                   </div>
@@ -300,19 +449,54 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
                         </div>
 
                         {/* Report preview or actions */}
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs">
-                          {student.submitted && student.reportDetails ? (
-                            <div className="bg-stone-50 dark:bg-stone-900/50 px-4 py-3 rounded-xl border border-stone-200/50 dark:border-stone-850 text-stone-500 max-w-sm">
-                              <span className="font-semibold text-stone-700 dark:text-stone-300 block mb-0.5">تقرير اليوم:</span>
-                              <ReportSummary report={student.reportDetails as unknown as StructuredReport} variant="compact" />
-                            </div>
-                          ) : (
-                            <span className="text-stone-400 italic">لا يوجد تقرير لليوم</span>
-                          )}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-4 text-xs">
+                          <div className="flex flex-col gap-2">
+                            {/* Planned (assignment) */}
+                            {student.assignment && (
+                              <div className="flex items-start gap-1.5 text-[11px]">
+                                <Sparkles className="w-3.5 h-3.5 text-primary-500 mt-0.5 shrink-0" />
+                                <div className="text-stone-500 dark:text-stone-400">
+                                  <span className="font-semibold text-stone-600 dark:text-stone-300">مقترح: </span>
+                                  {student.assignment.hifz_surah
+                                    ? formatRange({
+                                        surah: student.assignment.hifz_surah,
+                                        fromAyah: student.assignment.hifz_from_ayah ?? 1,
+                                        toAyah: student.assignment.hifz_to_ayah ?? 1,
+                                      })
+                                    : "—"}
+                                </div>
+                              </div>
+                            )}
 
-                          <div className="flex items-center gap-2 justify-end">
+                            {student.setupRequired && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                                <Settings2 className="w-3.5 h-3.5 shrink-0" />
+                                <span>يحتاج إعداد النظام</span>
+                              </div>
+                            )}
+
+                            {student.submitted && student.reportDetails ? (
+                              <div className="bg-stone-50 dark:bg-stone-900/50 px-4 py-3 rounded-xl border border-stone-200/50 dark:border-stone-850 text-stone-500 max-w-sm">
+                                <span className="font-semibold text-stone-700 dark:text-stone-300 block mb-0.5">تقرير اليوم:</span>
+                                <ReportSummary
+                                  report={student.reportDetails as unknown as StructuredReport}
+                                  variant="compact"
+                                />
+                              </div>
+                            ) : (
+                              !student.setupRequired && (
+                                <span className="text-stone-400 italic">لا يوجد تقرير لليوم</span>
+                              )
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 justify-end shrink-0">
                             <Link href={`/teacher/circles/${activeCircleId}/students/${student.id}`}>
-                              <Button variant="outline" size="sm" className="flex items-center gap-1.5 whitespace-nowrap">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-1.5 whitespace-nowrap"
+                              >
                                 <Eye className="w-4 h-4" />
                                 عرض السجل
                               </Button>
