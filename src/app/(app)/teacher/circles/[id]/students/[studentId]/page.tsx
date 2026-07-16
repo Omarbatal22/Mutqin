@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { ArrowRight, Calendar, FileText, Sparkles, Settings2 } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
+import { MemorizationSettingsSummary, type MemorizationSettings } from "@/components/memorization/settings-summary"
 import type { StructuredReport } from "@/lib/reports/types"
 import { formatRange } from "@/lib/quran"
 
@@ -77,10 +78,12 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
     .order("assignment_date", { ascending: false })
     .limit(30)
 
-  // Check if student has memorization settings configured
+  // Fetch the student's memorization system (hifz + revision) for this circle
   const { data: settingsRow } = await supabase
     .from("memorization_settings")
-    .select("user_id")
+    .select(
+      "start_surah, start_page, start_ayah, hifz_amount, hifz_custom_note, revision_amount, revision_start, revision_end, revision_cursor",
+    )
     .eq("circle_id", circleId)
     .eq("user_id", studentId)
     .maybeSingle()
@@ -148,6 +151,19 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
             </Card>
           </div>
         </div>
+
+        {/* Memorization system (hifz + revision) */}
+        {settingsRow && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold font-display mb-4 flex items-center gap-2">
+              <Settings2 className="w-5 h-5 text-primary-650" />
+              نظام الطالب في الحفظ والمراجعة
+            </h2>
+            <MemorizationSettingsSummary
+              settings={settingsRow as MemorizationSettings}
+            />
+          </div>
+        )}
 
         {/* Reports History Title */}
         <h2 className="text-lg font-bold font-display mb-4 flex items-center gap-2">

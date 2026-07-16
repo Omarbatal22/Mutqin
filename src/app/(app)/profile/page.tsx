@@ -1,13 +1,18 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { User, Mail, Shield, Check } from "lucide-react"
+import { User, Mail, Shield, Check, BookOpen } from "lucide-react"
+import {
+  MemorizationSettingsSummary,
+  type MemorizationSettings,
+} from "@/components/memorization/settings-summary"
 
 interface UserProfileData {
   id: string
@@ -24,7 +29,11 @@ export default function ProfilePage() {
   
   const [fullName, setFullName] = React.useState("")
   const [role, setRole] = React.useState<"teacher" | "student">("student")
-  
+
+  const [circleSettings, setCircleSettings] = React.useState<
+    { circleId: string; circleName: string; settings: MemorizationSettings }[]
+  >([])
+
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
 
@@ -50,6 +59,25 @@ export default function ProfilePage() {
           setFullName(profile.full_name || "")
           setRole(profile.preferred_role || "student")
         }
+
+        // Fetch the student's memorization system per circle (own rows via RLS)
+        const { data: settingsRows } = await supabase
+          .from("memorization_settings")
+          .select(
+            "circle_id, start_surah, start_page, start_ayah, hifz_amount, hifz_custom_note, revision_amount, revision_start, revision_end, revision_cursor, circles ( name )",
+          )
+          .eq("user_id", authUser.id)
+
+        setCircleSettings(
+          (settingsRows || []).map((row) => {
+            const circle = Array.isArray(row.circles) ? row.circles[0] : row.circles
+            return {
+              circleId: row.circle_id as string,
+              circleName: (circle as { name: string } | null)?.name ?? "حلقة",
+              settings: row as unknown as MemorizationSettings,
+            }
+          }),
+        )
       } catch {
         setError("حدث خطأ أثناء تحميل بيانات الحساب")
       } finally {
@@ -192,6 +220,32 @@ export default function ProfilePage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Memorization system per circle (student's own hifz + revision) */}
+        {circleSettings.length > 0 && (
+          <div className="mt-8 flex flex-col gap-6">
+            <h2 className="text-lg font-bold font-display flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-primary-650" />
+              نظام الحفظ والمراجعة
+            </h2>
+            {circleSettings.map(({ circleId, circleName, settings }) => (
+              <div key={circleId} className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm font-bold text-stone-700 dark:text-stone-300">
+                    حلقة {circleName}
+                  </span>
+                  <Link
+                    href={`/student/setup?circleId=${circleId}`}
+                    className="text-xs font-semibold text-primary-650 dark:text-primary-400 hover:underline"
+                  >
+                    تعديل النظام
+                  </Link>
+                </div>
+                <MemorizationSettingsSummary settings={settings} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardShell>
   )

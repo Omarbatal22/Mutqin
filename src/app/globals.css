@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `dark:` utilities respond to a `.dark` class on <html>,
+   set by the theme toggle (light / dark / system). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #f0fdf4;
   --color-primary-100: #dcfce7;
@@ -40,14 +44,12 @@
   --border: #e7e5e4; /* stone-200 */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #121212;
-    --foreground: #f5f5f4;
-    --card: #1c1c1a;
-    --card-foreground: #f5f5f4;
-    --border: #2e2e2a;
-  }
+.dark {
+  --background: #121212;
+  --foreground: #f5f5f4;
+  --card: #1c1c1a;
+  --card-foreground: #f5f5f4;
+  --border: #2e2e2a;
 }
 
 body {
