@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, Plus, Calendar } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
-import type { StructuredReport } from "@/lib/reports/types"
 
 interface DBMembershipCircle {
   circle_id: string
@@ -22,8 +21,11 @@ interface DBMembershipCircle {
   }[] | null
 }
 
-interface RecentReport extends StructuredReport {
+interface RecentReport {
+  id: string
+  report_date: string
   circles: { name: string } | { name: string }[] | null
+  [key: string]: unknown
 }
 
 export const dynamic = 'force-dynamic'
@@ -77,7 +79,7 @@ export default async function StudentDashboardPage() {
     return {
       ...circle,
       submittedToday: !!report,
-      reportDetails: report ? (report as unknown as StructuredReport) : null
+      reportDetails: report ? (report as Record<string, unknown> & { report_date: string }) : null
     }
   })
 
@@ -88,6 +90,8 @@ export default async function StudentDashboardPage() {
       id,
       report_date,
       did_hifz,
+      hifz_start_global,
+      hifz_end_global,
       hifz_surah,
       hifz_from_ayah,
       hifz_to_ayah,

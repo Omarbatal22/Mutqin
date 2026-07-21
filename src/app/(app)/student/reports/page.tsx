@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardContent } from "@/components/ui/card"
 import { History, Calendar, FileText, ArrowRight } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
-import type { StructuredReport } from "@/lib/reports/types"
-
-interface ReportItem extends StructuredReport {
+interface ReportItem {
+  id: string
+  report_date: string
+  week_reference?: string | null
   circles: { name: string } | { name: string }[] | null
+  [key: string]: unknown
 }
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +35,8 @@ export default async function StudentReportsHistoryPage() {
       report_date,
       week_reference,
       did_hifz,
+      hifz_start_global,
+      hifz_end_global,
       hifz_surah,
       hifz_from_ayah,
       hifz_to_ayah,
