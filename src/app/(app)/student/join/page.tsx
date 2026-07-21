@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { ArrowRight, Search, Check, AlertCircle } from "lucide-react"
 
 interface CircleDetails {
@@ -119,7 +118,7 @@ export default function JoinCirclePage() {
   }
 
   return (
-    <DashboardShell role="student">
+    <>
       <div className="max-w-md mx-auto w-full">
         {/* Back Link */}
         <Link href="/student/dashboard" className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6 font-semibold">
@@ -228,6 +227,6 @@ export default function JoinCirclePage() {
           </Card>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

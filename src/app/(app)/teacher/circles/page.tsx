@@ -2,7 +2,6 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Plus, Users, QrCode, Layers } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +51,7 @@ export default async function TeacherCirclesPage() {
   )
 
   return (
-    <DashboardShell role="teacher" userName={profile?.full_name || "الأستاذ"}>
+    <>
       <div className="flex flex-col gap-6 w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -128,6 +127,6 @@ export default async function TeacherCirclesPage() {
           </div>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

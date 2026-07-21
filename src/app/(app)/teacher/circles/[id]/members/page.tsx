@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { ArrowRight, QrCode, Copy, Trash2, Users, AlertCircle } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
@@ -93,7 +92,7 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
   }
 
   return (
-    <DashboardShell role="teacher">
+    <>
       <div className="max-w-4xl mx-auto w-full">
         {/* Back Link */}
         <Link href="/teacher/circles" className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6 font-semibold">
@@ -209,6 +208,6 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
         </Card>
 
       </div>
-    </DashboardShell>
+    </>
   )
 }

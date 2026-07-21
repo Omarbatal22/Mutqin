@@ -25,6 +25,7 @@ import {
   type GlobalRange,
 } from "./engine"
 import { type AyahRange, type StructuredReport } from "../reports/types"
+import { type Json } from "@/lib/supabase/database.types"
 
 export interface MemorizationSettings {
   user_id: string
@@ -148,13 +149,17 @@ export async function getToday(circleId: string): Promise<TodayView> {
 
   const startGlobal = globalIndex(settings.start_surah, settings.start_ayah) || 1
   const completed = (reports || [])
+    .filter(
+      (r): r is { hifz_surah: number; hifz_from_ayah: number; hifz_to_ayah: number } =>
+        r.hifz_surah != null && r.hifz_from_ayah != null && r.hifz_to_ayah != null,
+    )
     .map((r) => toGlobalRange({ surah: r.hifz_surah, fromAyah: r.hifz_from_ayah, toAyah: r.hifz_to_ayah }))
     .filter(Boolean) as GlobalRange[]
 
   const frontier = computeFrontier(startGlobal, completed)
 
   // 6. Determine cycle bounds and current revision cursor
-  const bounds = cycleRubBounds(settings.revision_start, settings.revision_end || 60)
+  const bounds = cycleRubBounds(settings.revision_start ?? 1, settings.revision_end || 60)
   const cursor = normalizeCursor(settings.revision_cursor, bounds)
 
   // 7. Load today's assignment if it exists
@@ -189,7 +194,7 @@ export async function getToday(circleId: string): Promise<TodayView> {
       hifz_surah: hifzRange?.surah ?? null,
       hifz_from_ayah: hifzRange?.fromAyah ?? null,
       hifz_to_ayah: hifzRange?.toAyah ?? null,
-      revision_ranges: revRange ? [revRange] : [],
+      revision_ranges: (revRange ? [revRange] : []) as unknown as Json,
       source_frontier: frontier,
       source_cursor: cursor,
       status: "pending",
@@ -219,9 +224,9 @@ export async function getToday(circleId: string): Promise<TodayView> {
   return {
     setupRequired: false,
     circle,
-    settings,
-    assignment,
-    report,
+    settings: settings as unknown as MemorizationSettings,
+    assignment: assignment as unknown as DailyAssignment | null,
+    report: report as unknown as StructuredReport | null,
     frontier,
     recomputedCursor: cursor,
   }
@@ -272,7 +277,7 @@ export async function submitReport(input: SubmitReportInput): Promise<{ success:
       return { success: false, error: "تعذر العثور على إعدادات الحفظ للحلقة" }
     }
 
-    const bounds = cycleRubBounds(settings.revision_start, settings.revision_end || 60)
+    const bounds = cycleRubBounds(settings.revision_start ?? 1, settings.revision_end || 60)
     const cursor = normalizeCursor(settings.revision_cursor, bounds)
 
     // 3. Compute how many revision rubs were completed from the current cursor

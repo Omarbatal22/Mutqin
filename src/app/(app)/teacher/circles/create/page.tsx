@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { ArrowRight, Copy, Check, QrCode } from "lucide-react"
 
 // Function to generate a random 6-character invite code
@@ -123,7 +122,7 @@ export default function CreateCirclePage() {
   }
 
   return (
-    <DashboardShell role="teacher">
+    <>
       <div className="max-w-2xl mx-auto w-full">
         {/* Back Link */}
         <Link href="/teacher/circles" className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6 font-semibold">
@@ -250,6 +249,6 @@ export default function CreateCirclePage() {
           </Card>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

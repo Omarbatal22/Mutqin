@@ -2,7 +2,6 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, Plus, Calendar } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
@@ -115,7 +114,7 @@ export default async function StudentDashboardPage() {
   const todayFormatted = new Date().toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })
 
   return (
-    <DashboardShell role="student" userName={profile?.full_name || "الطالب"}>
+    <>
       <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto">
         
         {/* Welcome Section */}
@@ -246,6 +245,6 @@ export default async function StudentDashboardPage() {
         </div>
 
       </div>
-    </DashboardShell>
+    </>
   )
 }

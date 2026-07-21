@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardContent } from "@/components/ui/card"
 import { History, Calendar, FileText, ArrowRight } from "lucide-react"
@@ -55,7 +54,7 @@ export default async function StudentReportsHistoryPage() {
     .order("report_date", { ascending: false })) as unknown as { data: ReportItem[] | null }
 
   return (
-    <DashboardShell role="student" userName={profile?.full_name || "الطالب"}>
+    <>
       <div className="max-w-4xl mx-auto w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -124,6 +123,6 @@ export default async function StudentReportsHistoryPage() {
           </div>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

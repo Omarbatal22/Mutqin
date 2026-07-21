@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server"
 import { getTeacherCircleIds } from "@/lib/circles/teacher-access"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
 import { CircleSwitcher } from "@/components/circle-switcher"
 import { WeeklyReportGrid } from "@/components/teacher/weekly-report-grid"
@@ -228,7 +227,7 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
   const todayFormatted = new Date().toLocaleDateString("ar-EG", { day: "numeric", month: "long" })
 
   return (
-    <DashboardShell role="teacher" userName={profile?.full_name || "الأستاذ"}>
+    <>
       <div className="flex flex-col gap-8 w-full">
         {/* Top Header greeting */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-[#1c1c1a] border border-stone-200 dark:border-stone-850 p-6 rounded-2xl shadow-xs">
@@ -519,6 +518,6 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
           </>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

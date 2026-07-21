@@ -2,7 +2,6 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardHeader, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { ArrowRight, Calendar, FileText, Sparkles, Settings2 } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
 import { MemorizationSettingsSummary, type MemorizationSettings } from "@/components/memorization/settings-summary"
@@ -105,7 +104,7 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
     : "غير معروف"
 
   return (
-    <DashboardShell role="teacher">
+    <>
       <div className="max-w-4xl mx-auto w-full">
         {/* Back Link */}
         <Link href={`/teacher/dashboard?circleId=${circleId}`} className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6 font-semibold">
@@ -248,6 +247,6 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
           </div>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

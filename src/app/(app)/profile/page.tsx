@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { User, Mail, Shield, Check, BookOpen } from "lucide-react"
 import {
   MemorizationSettingsSummary,
@@ -57,7 +56,7 @@ export default function ProfilePage() {
 
         if (profile) {
           setFullName(profile.full_name || "")
-          setRole(profile.preferred_role || "student")
+          setRole(profile.preferred_role === "teacher" ? "teacher" : "student")
         }
 
         // Fetch the student's memorization system per circle (own rows via RLS)
@@ -117,16 +116,16 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <DashboardShell role={role}>
+      <>
         <div className="flex items-center justify-center min-h-[50vh]">
           <span className="text-stone-500 animate-pulse">جاري تحميل بيانات الملف الشخصي...</span>
         </div>
-      </DashboardShell>
+      </>
     )
   }
 
   return (
-    <DashboardShell role={role} userName={fullName}>
+    <>
       <div className="max-w-xl mx-auto w-full">
         <h1 className="text-2xl font-bold font-display mb-6">الملف الشخصي وإعدادات الحساب</h1>
 
@@ -247,6 +246,6 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
-    </DashboardShell>
+    </>
   )
 }

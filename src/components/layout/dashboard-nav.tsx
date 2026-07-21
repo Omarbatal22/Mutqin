@@ -6,23 +6,35 @@ import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
-  BookOpen, 
-  CheckSquare, 
-  History, 
-  LogOut, 
-  User, 
-  Menu, 
+  BookOpen,
+  CheckSquare,
+  History,
+  LogOut,
+  User,
+  Menu,
   X,
-  Plus
+  Plus,
 } from "lucide-react"
 
-interface DashboardShellProps {
-  children: React.ReactNode
+interface DashboardNavProps {
   role: "teacher" | "student"
   userName?: string
 }
 
-export function DashboardShell({ children, role, userName = "المستخدم" }: DashboardShellProps) {
+const teacherNav = [
+  { name: "لوحة المتابعة", href: "/teacher/dashboard", icon: CheckSquare },
+  { name: "حلقاتي", href: "/teacher/circles", icon: BookOpen },
+  { name: "الملف الشخصي", href: "/profile", icon: User },
+]
+
+const studentNav = [
+  { name: "لوحة الطالب", href: "/student/dashboard", icon: CheckSquare },
+  { name: "أرسل تقرير", href: "/student/report", icon: Plus },
+  { name: "سجل تقاريري", href: "/student/reports", icon: History },
+  { name: "الملف الشخصي", href: "/profile", icon: User },
+]
+
+export function DashboardNav({ role, userName = "المستخدم" }: DashboardNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -34,24 +46,10 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
     router.refresh()
   }
 
-  // Navigation items based on role
-  const teacherNav = [
-    { name: "لوحة المتابعة", href: "/teacher/dashboard", icon: CheckSquare },
-    { name: "حلقاتي", href: "/teacher/circles", icon: BookOpen },
-    { name: "الملف الشخصي", href: "/profile", icon: User },
-  ]
-
-  const studentNav = [
-    { name: "لوحة الطالب", href: "/student/dashboard", icon: CheckSquare },
-    { name: "أرسل تقرير", href: "/student/report", icon: Plus },
-    { name: "سجل تقاريري", href: "/student/reports", icon: History },
-    { name: "الملف الشخصي", href: "/profile", icon: User },
-  ]
-
   const navItems = role === "teacher" ? teacherNav : studentNav
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-stone-50/50 dark:bg-[#121212] islamic-pattern">
+    <>
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-[#1c1c1a] border-l border-stone-200 dark:border-stone-800 h-screen sticky top-0">
         {/* Sidebar Header */}
@@ -120,6 +118,8 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="فتح القائمة"
+          aria-expanded={mobileMenuOpen}
           className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-950 text-stone-600 dark:text-stone-400"
         >
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -184,11 +184,6 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
         </div>
       )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-y-auto min-h-[calc(100vh-68px)] md:h-screen p-6 md:p-10 pb-24 md:pb-10">
-        {children}
-      </main>
-
       {/* Student Bottom Navigation (Mobile Only) */}
       {role === "student" && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-[#1c1c1a]/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-850 flex justify-around py-2.5 px-4 shadow-lg">
@@ -206,8 +201,8 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
                 }`}
               >
                 <div className={`p-1.5 rounded-xl transition-all ${
-                  isActive 
-                    ? "bg-primary-50 dark:bg-primary-950/30" 
+                  isActive
+                    ? "bg-primary-50 dark:bg-primary-950/30"
                     : ""
                 }`}>
                   <Icon className="w-5 h-5" />
@@ -218,6 +213,6 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
           })}
         </nav>
       )}
-    </div>
+    </>
   )
 }

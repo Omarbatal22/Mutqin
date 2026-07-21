@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { SURAHS, getSurah } from "@/lib/quran"
 import { ArrowRight, Check, Settings2 } from "lucide-react"
 
@@ -164,17 +163,17 @@ function SetupPageContent() {
 
   if (loading) {
     return (
-      <DashboardShell role="student">
+      <>
         <div className="flex items-center justify-center min-h-[50vh] text-stone-500 animate-pulse">
           جاري التحميل...
         </div>
-      </DashboardShell>
+      </>
     )
   }
 
   if (done) {
     return (
-      <DashboardShell role="student">
+      <>
         <div className="max-w-md mx-auto w-full">
           <Card className="border-emerald-250 text-center shadow-lg">
             <CardHeader>
@@ -200,14 +199,14 @@ function SetupPageContent() {
             </CardContent>
           </Card>
         </div>
-      </DashboardShell>
+      </>
     )
   }
 
   const totalSteps = 4
 
   return (
-    <DashboardShell role="student">
+    <>
       <div className="max-w-lg mx-auto w-full">
         <Link href="/student/dashboard" className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6 font-semibold">
           <ArrowRight className="w-4 h-4" />
@@ -411,7 +410,7 @@ function SetupPageContent() {
           </CardContent>
         </Card>
       </div>
-    </DashboardShell>
+    </>
   )
 }
 

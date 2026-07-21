@@ -2,7 +2,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getToday, getCircleLocalDate } from "@/lib/progression/today"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { AlertCircle, ArrowRight, Settings2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,7 +39,7 @@ export default async function SubmitReportPage({ searchParams }: PageProps) {
 
   if (circles.length === 0) {
     return (
-      <DashboardShell role="student">
+      <>
         <div className="max-w-md mx-auto w-full py-8">
           <Card className="shadow-md">
             <CardContent className="text-center p-8 flex flex-col items-center gap-3">
@@ -55,7 +54,7 @@ export default async function SubmitReportPage({ searchParams }: PageProps) {
             </CardContent>
           </Card>
         </div>
-      </DashboardShell>
+      </>
     )
   }
 
@@ -66,7 +65,7 @@ export default async function SubmitReportPage({ searchParams }: PageProps) {
 
   if (todayView.setupRequired) {
     return (
-      <DashboardShell role="student">
+      <>
         <div className="max-w-md mx-auto w-full py-8">
           <Link
             href="/student/dashboard"
@@ -96,7 +95,7 @@ export default async function SubmitReportPage({ searchParams }: PageProps) {
             </CardContent>
           </Card>
         </div>
-      </DashboardShell>
+      </>
     )
   }
 
@@ -122,7 +121,7 @@ export default async function SubmitReportPage({ searchParams }: PageProps) {
   })
 
   return (
-    <DashboardShell role="student">
+    <>
       <div className="max-w-2xl mx-auto w-full">
         <Link
           href="/student/dashboard"
@@ -140,6 +139,6 @@ export default async function SubmitReportPage({ searchParams }: PageProps) {
           todayFormatted={todayFormatted}
         />
       </div>
-    </DashboardShell>
+    </>
   )
 }
