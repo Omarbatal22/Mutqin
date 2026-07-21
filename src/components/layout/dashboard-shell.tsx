@@ -4,7 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { 
+import { ThemeToggle } from "@/components/theme-toggle"
+import {
   BookOpen, 
   CheckSquare, 
   History, 
@@ -85,6 +86,9 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-stone-100 dark:border-stone-900 flex flex-col gap-2">
+          <div className="px-2 pb-1">
+            <ThemeToggle />
+          </div>
           <div className="flex items-center gap-3 px-4 py-2">
             <div className="w-8 h-8 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center font-bold text-xs text-stone-700 dark:text-stone-300">
               {userName.charAt(0)}
@@ -156,6 +160,7 @@ export function DashboardShell({ children, role, userName = "المستخدم" }
             </nav>
 
             <div className="border-t border-stone-100 dark:border-stone-900 pt-4 flex flex-col gap-3">
+              <ThemeToggle />
               <div className="flex items-center gap-3 px-2">
                 <div className="w-8 h-8 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center font-bold text-xs">
                   {userName.charAt(0)}

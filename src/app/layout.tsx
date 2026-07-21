@@ -31,6 +31,15 @@ export default function RootLayout({
       className={`${arabicFont.variable} ${interFont.variable} antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Apply the saved theme before first paint to avoid a flash of the
+            wrong mode. Mirrors the logic in <ThemeToggle />. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('mutqin-theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className="font-sans min-h-screen bg-stone-50/50 dark:bg-[#121212] text-stone-900 dark:text-stone-100 flex flex-col"
         suppressHydrationWarning

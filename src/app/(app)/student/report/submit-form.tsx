@@ -11,6 +11,7 @@ import { NumberStepper } from "@/components/ui/number-stepper"
 import { SurahAyahPicker } from "@/components/quran/surah-ayah-picker"
 import { ReportSummary } from "@/components/reports/report-summary"
 import { submitReport } from "./actions"
+import { formatRange } from "@/lib/quran"
 import type { AyahRange, ListenerType, StructuredReport } from "@/lib/reports/types"
 import type { TodayView, DailyAssignment } from "@/lib/progression/today"
 import { Check, Plus, Sparkles, Pencil } from "lucide-react"
@@ -362,7 +363,7 @@ export default function SubmitReportForm({
                     مقترح تلقائياً
                   </span>
                   <span className="text-xs text-primary-600 dark:text-primary-500 truncate">
-                    {suggestedHifz.surah}:{suggestedHifz.fromAyah}–{suggestedHifz.toAyah}
+                    {formatRange(suggestedHifz)}
                   </span>
                 </div>
               </div>
@@ -443,9 +444,7 @@ export default function SubmitReportForm({
                     مقترح تلقائياً
                   </span>
                   <span className="text-xs text-primary-600 dark:text-primary-500 truncate">
-                    {suggestedRevision
-                      .map((r) => `${r.surah}:${r.fromAyah}–${r.toAyah}`)
-                      .join(" | ")}
+                    {suggestedRevision.map((r) => formatRange(r)).join(" • ")}
                   </span>
                 </div>
               </div>

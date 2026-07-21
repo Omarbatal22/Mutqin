@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
+import { getTeacherCircleIds } from "@/lib/circles/teacher-access"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
@@ -55,12 +56,17 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
     .eq("id", user?.id || "")
     .single()
 
-  // Fetch all circles owned by teacher to fill switcher
-  const { data: circles } = await supabase
-    .from("circles")
-    .select("id, name")
-    .eq("owner_id", user?.id || "")
-    .order("created_at", { ascending: false })
+  // Circles I own OR co-teach (multi-teacher).
+  const teacherCircleIds = await getTeacherCircleIds(supabase)
+
+  // Fetch all circles I teach to fill switcher
+  const { data: circles } = teacherCircleIds.length
+    ? await supabase
+        .from("circles")
+        .select("id, name")
+        .in("id", teacherCircleIds)
+        .order("created_at", { ascending: false })
+    : { data: [] }
 
   const activeCircleId = circleId || circles?.[0]?.id
 
