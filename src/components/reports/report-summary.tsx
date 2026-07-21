@@ -1,20 +1,39 @@
-import { formatRange } from "@/lib/quran"
-import type { StructuredReport, AyahRange, ListenerType } from "@/lib/reports/types"
+import { formatQuranRange } from "@/lib/quran"
+import { globalToQuran } from "@/lib/progression/adapter"
+import { normalizeHifzGlobals, normalizeRevisionRanges } from "@/lib/reports/normalize"
+import type { StructuredReport, QuranRange, ListenerType } from "@/lib/reports/types"
 
-function listenerLabel(
-  type: ListenerType | null,
-  name: string | null,
-): string | null {
+function listenerLabel(type: ListenerType | null, name: string | null): string | null {
   if (!type) return null
   if (type === "teacher") return "معلم الحلقة"
-  // peer/other both carry a resolved name in listener_name at render time
   return name || (type === "peer" ? "طالب من الحلقة" : "شخص آخر")
 }
 
 interface ReportSummaryProps {
-  report: StructuredReport
+  report: StructuredReport | (Record<string, unknown> & { id?: string; report_date: string })
   /** compact = single-line-ish for dashboard previews; full = detailed cards */
   variant?: "full" | "compact"
+}
+
+function getHifzQuranRange(report: ReportSummaryProps["report"]): QuranRange | null {
+  const r = report as Record<string, unknown>
+  const norm = normalizeHifzGlobals({
+    hifz_start_global: (r.hifz_start_global as number | null) ?? null,
+    hifz_end_global: (r.hifz_end_global as number | null) ?? null,
+    hifz_surah: (r.hifz_surah as number | null) ?? null,
+    hifz_from_ayah: (r.hifz_from_ayah as number | null) ?? null,
+    hifz_to_ayah: (r.hifz_to_ayah as number | null) ?? null,
+  })
+
+  if (norm.hifzStartGlobal != null && norm.hifzEndGlobal != null) {
+    return globalToQuran({ start: norm.hifzStartGlobal, end: norm.hifzEndGlobal })
+  }
+  return null
+}
+
+function getRevisionQuranRanges(report: ReportSummaryProps["report"]): QuranRange[] {
+  const r = report as Record<string, unknown>
+  return normalizeRevisionRanges(r.revision_ranges)
 }
 
 /**
@@ -23,36 +42,40 @@ interface ReportSummaryProps {
  * per-student view.
  */
 export function ReportSummary({ report, variant = "full" }: ReportSummaryProps) {
-  const hifzText =
-    report.did_hifz && report.hifz_surah && report.hifz_from_ayah && report.hifz_to_ayah
-      ? formatRange({
-          surah: report.hifz_surah,
-          fromAyah: report.hifz_from_ayah,
-          toAyah: report.hifz_to_ayah,
-        })
-      : null
+  const hifzQr = getHifzQuranRange(report)
+  const hifzText = hifzQr ? formatQuranRange(hifzQr) : null
 
-  const revisionRanges: AyahRange[] = Array.isArray(report.revision_ranges)
-    ? report.revision_ranges
-    : []
+  const revisionRanges = getRevisionQuranRanges(report)
+  const listener = listenerLabel(
+    (report.listener_type as ListenerType) ?? null,
+    (report.listener_name as string) ?? null,
+  )
 
-  const listener = listenerLabel(report.listener_type, report.listener_name)
+  const didHifz = Boolean(report.did_hifz)
+  const didRevision = Boolean(report.did_revision)
+  const hifzMistakes = Number(report.hifz_mistakes ?? 0)
+  const revisionMistakes = Number(report.revision_mistakes ?? 0)
+  const totalMistakes: number = Number(report.total_mistakes ?? hifzMistakes + revisionMistakes)
+
+  const hifzNotesStr = typeof report.hifz_notes === "string" && report.hifz_notes.trim() ? report.hifz_notes : null
+  const revNotesStr = typeof report.revision_notes === "string" && report.revision_notes.trim() ? report.revision_notes : null
+  const notesStr = typeof report.notes === "string" && report.notes.trim() ? report.notes : null
 
   if (variant === "compact") {
     return (
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
         <div>
           <span className="font-medium text-stone-600 dark:text-stone-400">حفظ:</span>{" "}
-          {report.did_hifz ? hifzText || "—" : "لا يوجد"}
+          {didHifz ? hifzText || "—" : "لا يوجد"}
         </div>
         <div>
           <span className="font-medium text-stone-600 dark:text-stone-400">مراجعة:</span>{" "}
-          {report.did_revision && revisionRanges.length
-            ? revisionRanges.map((r) => formatRange(r)).join("، ")
+          {didRevision && revisionRanges.length
+            ? revisionRanges.map((r) => formatQuranRange(r)).join("، ")
             : "لا يوجد"}
         </div>
         <div>
-          <span className="font-medium text-red-650">أخطاء:</span> {report.total_mistakes ?? 0}
+          <span className="font-medium text-red-650">أخطاء:</span> {totalMistakes}
         </div>
       </div>
     )
@@ -64,35 +87,33 @@ export function ReportSummary({ report, variant = "full" }: ReportSummaryProps) 
       <div className="p-3 bg-stone-50/50 dark:bg-stone-900/20 rounded-xl border border-stone-200/40 dark:border-stone-850/50">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-stone-450 dark:text-stone-500 font-bold">الحفظ</span>
-          {report.did_hifz && (
+          {didHifz && (
             <span className="text-[10px] font-bold text-red-650 dark:text-red-400">
-              أخطاء الحفظ: {report.hifz_mistakes}
+              أخطاء الحفظ: {hifzMistakes}
             </span>
           )}
         </div>
         <p className="text-sm font-semibold text-stone-800 dark:text-stone-250">
-          {report.did_hifz ? hifzText || "لم يُحدد" : "لم يُسمّع حفظ اليوم"}
+          {didHifz ? hifzText || "لم يُحدد" : "لم يُسمّع حفظ اليوم"}
         </p>
-        {report.hifz_notes && (
-          <p className="text-xs text-stone-500 mt-1.5">{report.hifz_notes}</p>
-        )}
+        {hifzNotesStr && <p className="text-xs text-stone-500 mt-1.5">{hifzNotesStr}</p>}
       </div>
 
       {/* Revision */}
       <div className="p-3 bg-stone-50/50 dark:bg-stone-900/20 rounded-xl border border-stone-200/40 dark:border-stone-850/50">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-stone-450 dark:text-stone-500 font-bold">المراجعة</span>
-          {report.did_revision && (
+          {didRevision && (
             <span className="text-[10px] font-bold text-red-650 dark:text-red-400">
-              أخطاء المراجعة: {report.revision_mistakes}
+              أخطاء المراجعة: {revisionMistakes}
             </span>
           )}
         </div>
-        {report.did_revision && revisionRanges.length ? (
+        {didRevision && revisionRanges.length ? (
           <div className="flex flex-col gap-0.5">
             {revisionRanges.map((r, i) => (
               <p key={i} className="text-sm font-semibold text-stone-800 dark:text-stone-250">
-                {formatRange(r)}
+                {formatQuranRange(r)}
               </p>
             ))}
           </div>
@@ -101,9 +122,7 @@ export function ReportSummary({ report, variant = "full" }: ReportSummaryProps) 
             لم تُسمّع مراجعة اليوم
           </p>
         )}
-        {report.revision_notes && (
-          <p className="text-xs text-stone-500 mt-1.5">{report.revision_notes}</p>
-        )}
+        {revNotesStr && <p className="text-xs text-stone-500 mt-1.5">{revNotesStr}</p>}
       </div>
 
       {/* Listener + general notes */}
@@ -117,13 +136,13 @@ export function ReportSummary({ report, variant = "full" }: ReportSummaryProps) 
           <span />
         )}
         <span className="text-[11px] font-bold text-red-650 dark:text-red-400">
-          إجمالي الأخطاء: {report.total_mistakes ?? report.hifz_mistakes + report.revision_mistakes}
+          إجمالي الأخطاء: {totalMistakes}
         </span>
       </div>
-      {report.notes && (
+      {notesStr && (
         <div className="text-xs text-stone-500">
           <span className="font-semibold text-stone-600 dark:text-stone-400">ملاحظات: </span>
-          {report.notes}
+          {notesStr}
         </div>
       )}
     </div>

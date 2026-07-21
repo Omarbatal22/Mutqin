@@ -1,17 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import {
-  globalIndex,
-} from "../quran/structure"
-import {
-  pageOf,
-  rubRange,
-} from "../quran/structure-boundaries"
-import {
-  toGlobalRange,
-  toAyahRange,
-  rubSpanToGlobal,
-} from "./adapter"
+import { globalIndex } from "../quran/structure"
+import { pageOf, rubRange } from "../quran/structure-boundaries"
+import { quranToGlobal, globalToQuran, rubSpanToGlobal } from "./adapter"
 import {
   computeFrontier,
   advanceRevisionCursor,
@@ -24,8 +15,9 @@ import {
   type RevisionAmount,
   type GlobalRange,
 } from "./engine"
-import { type AyahRange, type StructuredReport } from "../reports/types"
-import { type Json } from "@/lib/supabase/database.types"
+import type { QuranRange, StructuredReport } from "../reports/types"
+import { normalizeHifzGlobals, normalizeRevisionRanges } from "../reports/normalize"
+import type { Json } from "@/lib/supabase/database.types"
 
 export interface MemorizationSettings {
   user_id: string
@@ -48,10 +40,12 @@ export interface DailyAssignment {
   circle_id: string
   student_id: string
   assignment_date: string
-  hifz_surah: number | null
-  hifz_from_ayah: number | null
-  hifz_to_ayah: number | null
-  revision_ranges: AyahRange[]
+  hifz_start_global: number | null
+  hifz_end_global: number | null
+  hifz_surah?: number | null
+  hifz_from_ayah?: number | null
+  hifz_to_ayah?: number | null
+  revision_ranges: QuranRange[]
   source_frontier: number | null
   source_cursor: number | null
   status: "pending" | "submitted" | "skipped"
@@ -100,7 +94,9 @@ export async function getToday(circleId: string): Promise<TodayView> {
   const supabase = await createClient()
 
   // 1. Get authenticated user
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
     throw new Error("User not authenticated")
   }
@@ -142,18 +138,20 @@ export async function getToday(circleId: string): Promise<TodayView> {
   // 5. Fetch all student's successful hifz reports in this circle to recompute frontier
   const { data: reports } = await supabase
     .from("daily_reports")
-    .select("hifz_surah, hifz_from_ayah, hifz_to_ayah")
+    .select("hifz_start_global, hifz_end_global, hifz_surah, hifz_from_ayah, hifz_to_ayah")
     .eq("student_id", user.id)
     .eq("circle_id", circleId)
     .eq("did_hifz", true)
 
   const startGlobal = globalIndex(settings.start_surah, settings.start_ayah) || 1
-  const completed = (reports || [])
-    .filter(
-      (r): r is { hifz_surah: number; hifz_from_ayah: number; hifz_to_ayah: number } =>
-        r.hifz_surah != null && r.hifz_from_ayah != null && r.hifz_to_ayah != null,
-    )
-    .map((r) => toGlobalRange({ surah: r.hifz_surah, fromAyah: r.hifz_from_ayah, toAyah: r.hifz_to_ayah }))
+  const completed: GlobalRange[] = (reports || [])
+    .map((r) => {
+      const norm = normalizeHifzGlobals(r)
+      if (norm.hifzStartGlobal != null && norm.hifzEndGlobal != null) {
+        return { start: norm.hifzStartGlobal, end: norm.hifzEndGlobal }
+      }
+      return null
+    })
     .filter(Boolean) as GlobalRange[]
 
   const frontier = computeFrontier(startGlobal, completed)
@@ -163,7 +161,7 @@ export async function getToday(circleId: string): Promise<TodayView> {
   const cursor = normalizeCursor(settings.revision_cursor, bounds)
 
   // 7. Load today's assignment if it exists
-  let { data: assignment } = await supabase
+  let { data: rawAssignment } = await supabase
     .from("daily_assignments")
     .select("*")
     .eq("student_id", user.id)
@@ -172,28 +170,24 @@ export async function getToday(circleId: string): Promise<TodayView> {
     .maybeSingle()
 
   // 8. If assignment doesn't exist, or if it is pending and has stale inputs, regenerate it
-  const needsGeneration = !assignment || (
-    assignment.status === "pending" && (
-      assignment.source_frontier !== frontier ||
-      assignment.source_cursor !== cursor
-    )
-  )
+  const needsGeneration =
+    !rawAssignment ||
+    (rawAssignment.status === "pending" &&
+      (rawAssignment.source_frontier !== frontier || rawAssignment.source_cursor !== cursor))
 
   if (needsGeneration) {
     const hifzSuggestion = suggestHifz(settings.hifz_amount as HifzMode, frontier)
-    const hifzRange = hifzSuggestion ? toAyahRange(hifzSuggestion) : null
 
     const revSuggestionRubs = suggestRevisionRubs(cursor, settings.revision_amount as RevisionAmount, bounds)
     const revSuggestionGlobal = rubSpanToGlobal(revSuggestionRubs.fromRub, revSuggestionRubs.toRub)
-    const revRange = revSuggestionGlobal ? toAyahRange(revSuggestionGlobal) : null
+    const revRange = revSuggestionGlobal ? globalToQuran(revSuggestionGlobal) : null
 
     const assignmentPayload = {
       circle_id: circleId,
       student_id: user.id,
       assignment_date: todayStr,
-      hifz_surah: hifzRange?.surah ?? null,
-      hifz_from_ayah: hifzRange?.fromAyah ?? null,
-      hifz_to_ayah: hifzRange?.toAyah ?? null,
+      hifz_start_global: hifzSuggestion?.start ?? null,
+      hifz_end_global: hifzSuggestion?.end ?? null,
       revision_ranges: (revRange ? [revRange] : []) as unknown as Json,
       source_frontier: frontier,
       source_cursor: cursor,
@@ -209,11 +203,31 @@ export async function getToday(circleId: string): Promise<TodayView> {
     if (upsertError) {
       throw new Error(`Failed to upsert today's assignment: ${upsertError.message}`)
     }
-    assignment = upserted
+    rawAssignment = upserted
   }
 
+  const assignment: DailyAssignment | null = rawAssignment
+    ? {
+        id: rawAssignment.id,
+        circle_id: rawAssignment.circle_id,
+        student_id: rawAssignment.student_id,
+        assignment_date: rawAssignment.assignment_date,
+        hifz_start_global: rawAssignment.hifz_start_global ?? null,
+        hifz_end_global: rawAssignment.hifz_end_global ?? null,
+        hifz_surah: rawAssignment.hifz_surah,
+        hifz_from_ayah: rawAssignment.hifz_from_ayah,
+        hifz_to_ayah: rawAssignment.hifz_to_ayah,
+        revision_ranges: normalizeRevisionRanges(rawAssignment.revision_ranges),
+        source_frontier: rawAssignment.source_frontier,
+        source_cursor: rawAssignment.source_cursor,
+        status: rawAssignment.status as "pending" | "submitted" | "skipped",
+        created_at: rawAssignment.created_at,
+        updated_at: rawAssignment.updated_at,
+      }
+    : null
+
   // 9. Load today's submitted report
-  const { data: report } = await supabase
+  const { data: rawReport } = await supabase
     .from("daily_reports")
     .select("*")
     .eq("student_id", user.id)
@@ -221,12 +235,35 @@ export async function getToday(circleId: string): Promise<TodayView> {
     .eq("report_date", todayStr)
     .maybeSingle()
 
+  const report: StructuredReport | null = rawReport
+    ? {
+        id: rawReport.id,
+        report_date: rawReport.report_date,
+        week_reference: rawReport.week_reference,
+        did_hifz: rawReport.did_hifz,
+        hifz_start_global: rawReport.hifz_start_global ?? null,
+        hifz_end_global: rawReport.hifz_end_global ?? null,
+        hifz_page: rawReport.hifz_page,
+        hifz_mistakes: rawReport.hifz_mistakes,
+        hifz_notes: rawReport.hifz_notes,
+        did_revision: rawReport.did_revision,
+        revision_ranges: normalizeRevisionRanges(rawReport.revision_ranges),
+        revision_mistakes: rawReport.revision_mistakes,
+        revision_notes: rawReport.revision_notes,
+        listener_type: rawReport.listener_type as StructuredReport["listener_type"],
+        listener_user_id: rawReport.listener_user_id,
+        listener_name: rawReport.listener_name,
+        notes: rawReport.notes,
+        total_mistakes: rawReport.total_mistakes,
+      }
+    : null
+
   return {
     setupRequired: false,
     circle,
     settings: settings as unknown as MemorizationSettings,
-    assignment: assignment as unknown as DailyAssignment | null,
-    report: report as unknown as StructuredReport | null,
+    assignment,
+    report,
     frontier,
     recomputedCursor: cursor,
   }
@@ -236,11 +273,11 @@ export interface SubmitReportInput {
   circleId: string
   assignmentId: string | null
   didHifz: boolean
-  hifzRange: { surah: number; fromAyah: number; toAyah: number } | null
+  hifzRange: QuranRange | null
   hifzMistakes: number
   hifzNotes: string
   didRevision: boolean
-  revisionRanges: Array<{ surah: number; fromAyah: number; toAyah: number }>
+  revisionRanges: QuranRange[]
   revisionMistakes: number
   revisionNotes: string
   listenerType: "teacher" | "peer" | "other"
@@ -260,7 +297,9 @@ export async function submitReport(input: SubmitReportInput): Promise<{ success:
     const supabase = await createClient()
 
     // 1. Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) {
       return { success: false, error: "المستخدم غير مسجل الدخول" }
     }
@@ -283,9 +322,7 @@ export async function submitReport(input: SubmitReportInput): Promise<{ success:
     // 3. Compute how many revision rubs were completed from the current cursor
     let completedRubs = 0
     if (input.didRevision && input.revisionRanges.length > 0) {
-      const completedRanges = input.revisionRanges
-        .map(toGlobalRange)
-        .filter(Boolean) as GlobalRange[]
+      const completedRanges = input.revisionRanges.map(quranToGlobal).filter(Boolean) as GlobalRange[]
 
       const mergedCompleted = mergeRanges(completedRanges)
       let checkRub = cursor
@@ -294,7 +331,7 @@ export async function submitReport(input: SubmitReportInput): Promise<{ success:
         if (!rRange) break
         // Check if this rub is fully contained in any of the student's completed ranges
         const isContained = mergedCompleted.some(
-          (m: GlobalRange) => m.start <= rRange.start && m.end >= rRange.end
+          (m: GlobalRange) => m.start <= rRange.start && m.end >= rRange.end,
         )
         if (isContained) {
           completedRubs++
@@ -307,21 +344,18 @@ export async function submitReport(input: SubmitReportInput): Promise<{ success:
 
     const newCursor = advanceRevisionCursor(cursor, completedRubs, bounds)
 
-    // 4. Calculate hifz_page if hifz is submitted
+    // 4. Calculate hifz_page and global start/end if hifz is submitted
     let hifzPage = null
-    if (input.didHifz && input.hifzRange) {
-      const globalRange = toGlobalRange(input.hifzRange)
-      if (globalRange) {
-        hifzPage = pageOf(globalRange.start)
-      }
+    const hifzGlobal = input.didHifz && input.hifzRange ? quranToGlobal(input.hifzRange) : null
+    if (hifzGlobal) {
+      hifzPage = pageOf(hifzGlobal.start)
     }
 
     const reportPayload = {
       week_reference: input.weekReference || null,
       did_hifz: input.didHifz,
-      hifz_surah: input.didHifz && input.hifzRange ? input.hifzRange.surah : null,
-      hifz_from_ayah: input.didHifz && input.hifzRange ? input.hifzRange.fromAyah : null,
-      hifz_to_ayah: input.didHifz && input.hifzRange ? input.hifzRange.toAyah : null,
+      hifz_start_global: hifzGlobal?.start ?? null,
+      hifz_end_global: hifzGlobal?.end ?? null,
       hifz_page: hifzPage,
       hifz_mistakes: input.didHifz ? input.hifzMistakes : 0,
       hifz_notes: input.didHifz ? input.hifzNotes || null : null,
@@ -339,7 +373,7 @@ export async function submitReport(input: SubmitReportInput): Promise<{ success:
     const { error: rpcError } = await supabase.rpc("submit_daily_report", {
       p_circle_id: input.circleId,
       p_assignment_id: input.assignmentId,
-      p_report: reportPayload,
+      p_report: reportPayload as unknown as Json,
       p_new_cursor: newCursor,
     })
 

@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { NumberStepper } from "@/components/ui/number-stepper"
-import { SurahAyahPicker } from "@/components/quran/surah-ayah-picker"
+import { QuranRangePicker } from "@/components/quran/quran-range-picker"
 import { ReportSummary } from "@/components/reports/report-summary"
 import { submitReport } from "./actions"
-import { formatRange } from "@/lib/quran"
-import type { AyahRange, ListenerType, StructuredReport } from "@/lib/reports/types"
+import { formatQuranRange } from "@/lib/quran"
+import { globalToQuran, quranToGlobal } from "@/lib/progression/adapter"
+import { normalizeHifzGlobals } from "@/lib/reports/normalize"
+import type { QuranRange, ListenerType, StructuredReport } from "@/lib/reports/types"
 import type { TodayView, DailyAssignment } from "@/lib/progression/today"
 import { Check, Plus, Sparkles, Pencil } from "lucide-react"
 
@@ -35,12 +37,15 @@ interface Props {
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-function assignmentHifzRange(a: DailyAssignment): AyahRange | null {
-  if (a.hifz_surah == null || a.hifz_from_ayah == null || a.hifz_to_ayah == null) return null
-  return { surah: a.hifz_surah, fromAyah: a.hifz_from_ayah, toAyah: a.hifz_to_ayah }
+function assignmentHifzRange(a: DailyAssignment): QuranRange | null {
+  const norm = normalizeHifzGlobals(a)
+  if (norm.hifzStartGlobal != null && norm.hifzEndGlobal != null) {
+    return globalToQuran({ start: norm.hifzStartGlobal, end: norm.hifzEndGlobal })
+  }
+  return null
 }
 
-const emptyRange: AyahRange = { surah: 1, fromAyah: 1, toAyah: 1 }
+const emptyQuranRange: QuranRange = { startSurah: 1, startAyah: 1, endSurah: 1, endAyah: 1 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Component
@@ -57,10 +62,10 @@ export default function SubmitReportForm({
   const { assignment, report } = todayView
 
   const suggestedHifz = assignment ? assignmentHifzRange(assignment) : null
-  const suggestedRevision: AyahRange[] =
+  const suggestedRevision: QuranRange[] =
     assignment?.revision_ranges && assignment.revision_ranges.length > 0
-      ? (assignment.revision_ranges as AyahRange[])
-      : [emptyRange]
+      ? assignment.revision_ranges
+      : [emptyQuranRange]
 
   const isAlreadySubmitted = !!report
 
@@ -79,10 +84,10 @@ export default function SubmitReportForm({
         : "none"
       : "completed",
   )
-  const [hifzPartialRange, setHifzPartialRange] = React.useState<AyahRange>(
-    suggestedHifz ?? emptyRange,
+  const [hifzPartialRange, setHifzPartialRange] = React.useState<QuranRange>(
+    suggestedHifz ?? emptyQuranRange,
   )
-  const [hifzDifferentRange, setHifzDifferentRange] = React.useState<AyahRange>(emptyRange)
+  const [hifzDifferentRange, setHifzDifferentRange] = React.useState<QuranRange>(emptyQuranRange)
   const [hifzMistakes, setHifzMistakes] = React.useState(report?.hifz_mistakes ?? 0)
   const [hifzNotes, setHifzNotes] = React.useState(report?.hifz_notes ?? "")
 
@@ -94,11 +99,11 @@ export default function SubmitReportForm({
         : "none"
       : "completed",
   )
-  const [revisionPartialRanges, setRevisionPartialRanges] = React.useState<AyahRange[]>(
+  const [revisionPartialRanges, setRevisionPartialRanges] = React.useState<QuranRange[]>(
     suggestedRevision,
   )
-  const [revisionDifferentRanges, setRevisionDifferentRanges] = React.useState<AyahRange[]>([
-    emptyRange,
+  const [revisionDifferentRanges, setRevisionDifferentRanges] = React.useState<QuranRange[]>([
+    emptyQuranRange,
   ])
   const [revisionMistakes, setRevisionMistakes] = React.useState(report?.revision_mistakes ?? 0)
   const [revisionNotes, setRevisionNotes] = React.useState(report?.revision_notes ?? "")
@@ -119,7 +124,7 @@ export default function SubmitReportForm({
 
   // ── Derived ──────────────────────────────────────────────────────────────
 
-  const actualHifzRange: AyahRange | null =
+  const actualHifzRange: QuranRange | null =
     hifzOutcome === "completed"
       ? suggestedHifz
       : hifzOutcome === "partial"
@@ -130,7 +135,7 @@ export default function SubmitReportForm({
 
   const didHifz = hifzOutcome !== "none"
 
-  const actualRevisionRanges: AyahRange[] =
+  const actualRevisionRanges: QuranRange[] =
     revisionOutcome === "completed"
       ? suggestedRevision
       : revisionOutcome === "partial"
@@ -184,27 +189,7 @@ export default function SubmitReportForm({
 
   // ── Read-only view (already submitted) ───────────────────────────────────
 
-  if (isAlreadySubmitted && !isEditing && !success) {
-    const summaryReport: StructuredReport = {
-      report_date: report.report_date,
-      did_hifz: report.did_hifz,
-      hifz_surah: report.hifz_surah,
-      hifz_from_ayah: report.hifz_from_ayah,
-      hifz_to_ayah: report.hifz_to_ayah,
-      hifz_page: report.hifz_page,
-      hifz_mistakes: report.hifz_mistakes,
-      hifz_notes: report.hifz_notes,
-      did_revision: report.did_revision,
-      revision_ranges: (report.revision_ranges as AyahRange[]) ?? [],
-      revision_mistakes: report.revision_mistakes,
-      revision_notes: report.revision_notes,
-      listener_type: report.listener_type,
-      listener_user_id: report.listener_user_id,
-      listener_name: report.listener_name,
-      notes: report.notes,
-      total_mistakes: report.total_mistakes,
-    }
-
+  if (isAlreadySubmitted && !isEditing && !success && report) {
     return (
       <Card className="border-emerald-200/50 shadow-lg">
         <CardHeader className="text-center">
@@ -217,7 +202,7 @@ export default function SubmitReportForm({
           <CardDescription>سيظهر تقريرك مباشرة لمعلم حلقتك في لوحة المتابعة.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 mt-2">
-          <ReportSummary report={summaryReport} />
+          <ReportSummary report={report} />
           <div className="flex gap-3">
             <Button
               variant="secondary"
@@ -241,24 +226,23 @@ export default function SubmitReportForm({
   // ── Success screen ────────────────────────────────────────────────────────
 
   if (success) {
+    const summaryHifzGlobal = actualHifzRange ? quranToGlobal(actualHifzRange) : null
     const summaryReport: StructuredReport = {
       report_date: new Date().toISOString().split("T")[0],
       did_hifz: didHifz,
-      hifz_surah: actualHifzRange?.surah ?? null,
-      hifz_from_ayah: actualHifzRange?.fromAyah ?? null,
-      hifz_to_ayah: actualHifzRange?.toAyah ?? null,
+      hifz_start_global: summaryHifzGlobal?.start ?? null,
+      hifz_end_global: summaryHifzGlobal?.end ?? null,
       hifz_page: null,
       hifz_mistakes: hifzMistakes,
-      hifz_notes: hifzNotes || null,
+      hifz_notes: hifzNotes,
       did_revision: didRevision,
       revision_ranges: actualRevisionRanges,
       revision_mistakes: revisionMistakes,
-      revision_notes: revisionNotes || null,
+      revision_notes: revisionNotes,
       listener_type: listenerType,
-      listener_user_id: listenerType === "peer" ? listenerUserId || null : null,
+      listener_user_id: listenerUserId || null,
       listener_name: resolvedListenerName,
-      notes: notes || null,
-      total_mistakes: hifzMistakes + revisionMistakes,
+      notes,
     }
 
     return (
@@ -268,29 +252,17 @@ export default function SubmitReportForm({
             <Check className="w-6 h-6" />
           </div>
           <CardTitle className="text-xl font-bold text-emerald-800 dark:text-emerald-400">
-            {isAlreadySubmitted ? "تم تحديث تقرير اليوم!" : "تم تسجيل تقرير اليوم ✓"}
+            تم حفظ التقرير بنجاح!
           </CardTitle>
-          <CardDescription>سيظهر تقريرك مباشرة لمعلم حلقتك في لوحة المتابعة.</CardDescription>
+          <CardDescription>شكراً لك، تم تحديث بياناتك وتسميع اليوم بنجاح.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 mt-2">
           <ReportSummary report={summaryReport} />
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              className="flex-grow"
-              onClick={() => {
-                setSuccess(false)
-                setIsEditing(true)
-              }}
-            >
-              تعديل التقرير
+          <Link href="/student/dashboard">
+            <Button variant="primary" className="w-full">
+              العودة للرئيسية
             </Button>
-            <Link href="/student/dashboard" className="flex-grow">
-              <Button variant="primary" className="w-full">
-                العودة للرئيسية
-              </Button>
-            </Link>
-          </div>
+          </Link>
         </CardContent>
       </Card>
     )
@@ -363,7 +335,7 @@ export default function SubmitReportForm({
                     مقترح تلقائياً
                   </span>
                   <span className="text-xs text-primary-600 dark:text-primary-500 truncate">
-                    {formatRange(suggestedHifz)}
+                    {formatQuranRange(suggestedHifz)}
                   </span>
                 </div>
               </div>
@@ -396,7 +368,7 @@ export default function SubmitReportForm({
             {hifzOutcome === "partial" && (
               <div className="flex flex-col gap-3">
                 <p className="text-xs text-stone-500">حتى أي آية وصلت؟</p>
-                <SurahAyahPicker
+                <QuranRangePicker
                   value={hifzPartialRange}
                   onChange={setHifzPartialRange}
                 />
@@ -406,7 +378,7 @@ export default function SubmitReportForm({
             {hifzOutcome === "different" && (
               <div className="flex flex-col gap-3">
                 <p className="text-xs text-stone-500">حدد ما سمّعته فعلياً</p>
-                <SurahAyahPicker
+                <QuranRangePicker
                   value={hifzDifferentRange}
                   onChange={setHifzDifferentRange}
                 />
@@ -444,7 +416,7 @@ export default function SubmitReportForm({
                     مقترح تلقائياً
                   </span>
                   <span className="text-xs text-primary-600 dark:text-primary-500 truncate">
-                    {suggestedRevision.map((r) => formatRange(r)).join(" • ")}
+                    {suggestedRevision.map((r) => formatQuranRange(r)).join(" • ")}
                   </span>
                 </div>
               </div>
@@ -477,7 +449,7 @@ export default function SubmitReportForm({
             {revisionOutcome === "partial" && (
               <div className="flex flex-col gap-3">
                 {revisionPartialRanges.map((r, i) => (
-                  <SurahAyahPicker
+                  <QuranRangePicker
                     key={i}
                     value={r}
                     onChange={(range) =>
@@ -496,7 +468,7 @@ export default function SubmitReportForm({
                 <button
                   type="button"
                   onClick={() =>
-                    setRevisionPartialRanges((prev) => [...prev, { ...emptyRange }])
+                    setRevisionPartialRanges((prev) => [...prev, { ...emptyQuranRange }])
                   }
                   className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-semibold self-start"
                 >
@@ -509,7 +481,7 @@ export default function SubmitReportForm({
             {revisionOutcome === "different" && (
               <div className="flex flex-col gap-3">
                 {revisionDifferentRanges.map((r, i) => (
-                  <SurahAyahPicker
+                  <QuranRangePicker
                     key={i}
                     value={r}
                     onChange={(range) =>
@@ -528,7 +500,7 @@ export default function SubmitReportForm({
                 <button
                   type="button"
                   onClick={() =>
-                    setRevisionDifferentRanges((prev) => [...prev, { ...emptyRange }])
+                    setRevisionDifferentRanges((prev) => [...prev, { ...emptyQuranRange }])
                   }
                   className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-semibold self-start"
                 >
@@ -555,75 +527,93 @@ export default function SubmitReportForm({
             )}
           </section>
 
-          {/* ③ Listener */}
-          <section className="flex flex-col gap-3 border-t border-stone-100 dark:border-stone-900 pt-5">
-            <h3 className="font-bold text-stone-800 dark:text-stone-200">③ سمّعت على</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  { v: "teacher", l: "معلم الحلقة" },
-                  { v: "peer", l: "طالب من الحلقة" },
-                  { v: "other", l: "شخص آخر" },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.v}
-                  type="button"
-                  onClick={() => setListenerType(opt.v)}
-                  className={`p-3 rounded-xl border-2 text-xs font-semibold transition-all ${
-                    listenerType === opt.v
-                      ? "border-primary-600 bg-primary-50/50 dark:bg-primary-950/10 text-primary-700 dark:text-primary-400"
-                      : "border-stone-200 dark:border-stone-850 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900"
-                  }`}
-                >
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-            {listenerType === "peer" && (
-              <select
-                value={listenerUserId}
-                onChange={(e) => setListenerUserId(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">اختر الطالب...</option>
-                {peers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name}
-                  </option>
+          {/* ③ Listener section */}
+          <section className="flex flex-col gap-4 border-t border-stone-100 dark:border-stone-900 pt-5">
+            <h3 className="font-bold text-stone-800 dark:text-stone-200">③ التسميع والتحقيق</h3>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                على من سمّعت؟
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { v: "teacher", l: "معلم الحلقة" },
+                    { v: "peer", l: "طالب من الحلقة" },
+                    { v: "other", l: "شخص آخر" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setListenerType(opt.v)}
+                    className={`p-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${
+                      listenerType === opt.v
+                        ? "border-primary-600 bg-primary-50/50 dark:bg-primary-950/10 text-primary-700 dark:text-primary-400"
+                        : "border-stone-200 dark:border-stone-850 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900"
+                    }`}
+                  >
+                    {opt.l}
+                  </button>
                 ))}
-              </select>
+              </div>
+            </div>
+
+            {listenerType === "peer" && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                  اختر الزميل
+                </label>
+                <select
+                  value={listenerUserId}
+                  onChange={(e) => setListenerUserId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                >
+                  <option value="">-- اختر الطالب --</option>
+                  {peers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
+
             {listenerType === "other" && (
-              <input
-                type="text"
-                placeholder="اسم المستمع (اختياري)"
-                value={listenerName}
-                onChange={(e) => setListenerName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                  اسم المستمع
+                </label>
+                <input
+                  type="text"
+                  placeholder="مثال: الشيخ أسامة، الوالد..."
+                  value={listenerName}
+                  onChange={(e) => setListenerName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
             )}
           </section>
 
-          {/* ④ Notes */}
-          <section className="flex flex-col gap-3 border-t border-stone-100 dark:border-stone-900 pt-5">
-            <h3 className="font-bold text-stone-800 dark:text-stone-200">④ ملاحظات عامة</h3>
+          {/* ④ General notes */}
+          <section className="flex flex-col gap-4 border-t border-stone-100 dark:border-stone-900 pt-5">
             <Textarea
-              placeholder="اكتب ملاحظة إن وجدت..."
+              label="ملاحظات عامة (اختياري)"
+              placeholder="أي تفاصيل أخرى تود مشاركتها مع المعلم..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
             />
           </section>
 
-          <Button type="submit" className="w-full mt-2" disabled={submitting}>
-            {submitting
-              ? isEditing && isAlreadySubmitted
-                ? "جاري التحديث..."
-                : "جاري الإرسال..."
-              : isEditing && isAlreadySubmitted
-                ? "تحديث تقرير اليوم"
-                : "تسجيل تقرير اليوم"}
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            disabled={submitting}
+            className="w-full mt-2"
+          >
+            {submitting ? "جاري الإرسال..." : isAlreadySubmitted ? "تحديث التقرير" : "إرسال التقرير"}
           </Button>
         </form>
       </CardContent>

@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Calendar, FileText, Sparkles, Settings2 } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
 import { MemorizationSettingsSummary, type MemorizationSettings } from "@/components/memorization/settings-summary"
-import type { StructuredReport } from "@/lib/reports/types"
-import { formatRange } from "@/lib/quran"
+import { formatQuranRange } from "@/lib/quran"
+import { globalToQuran } from "@/lib/progression/adapter"
+import { normalizeHifzGlobals } from "@/lib/reports/normalize"
 
 export const dynamic = "force-dynamic"
 
@@ -48,6 +49,8 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
       report_date,
       week_reference,
       did_hifz,
+      hifz_start_global,
+      hifz_end_global,
       hifz_surah,
       hifz_from_ayah,
       hifz_to_ayah,
@@ -71,7 +74,7 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
   // Fetch assignments for this student in this circle (for planned vs actual)
   const { data: assignments } = await supabase
     .from("daily_assignments")
-    .select("assignment_date, hifz_surah, hifz_from_ayah, hifz_to_ayah, revision_ranges, status")
+    .select("assignment_date, hifz_start_global, hifz_end_global, hifz_surah, hifz_from_ayah, hifz_to_ayah, revision_ranges, status")
     .eq("circle_id", circleId)
     .eq("student_id", studentId)
     .order("assignment_date", { ascending: false })
@@ -200,21 +203,17 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
                     {(() => {
                       const assignment = assignmentByDate[report.report_date]
                       if (!assignment) return null
-                      const plannedHifz = assignment.hifz_surah
-                        ? formatRange({
-                            surah: assignment.hifz_surah,
-                            fromAyah: assignment.hifz_from_ayah ?? 1,
-                            toAyah: assignment.hifz_to_ayah ?? 1,
-                          })
+                      const normAssign = normalizeHifzGlobals(assignment)
+                      const assignQr = normAssign.hifzStartGlobal != null && normAssign.hifzEndGlobal != null
+                        ? globalToQuran({ start: normAssign.hifzStartGlobal, end: normAssign.hifzEndGlobal })
                         : null
-                      const actualHifz = report.did_hifz && report.hifz_surah
-                        ? formatRange({
-                            surah: report.hifz_surah,
-                            fromAyah: report.hifz_from_ayah ?? 1,
-                            toAyah: report.hifz_to_ayah ?? 1,
-                          })
+                      const normReport = normalizeHifzGlobals(report)
+                      const reportQr = report.did_hifz && normReport.hifzStartGlobal != null && normReport.hifzEndGlobal != null
+                        ? globalToQuran({ start: normReport.hifzStartGlobal, end: normReport.hifzEndGlobal })
                         : null
-                      const matched = plannedHifz === actualHifz
+                      const plannedText = assignQr ? formatQuranRange(assignQr) : null
+                      const actualText = reportQr ? formatQuranRange(reportQr) : null
+                      const matched = plannedText && actualText ? plannedText === actualText : false
                       return (
                         <Badge variant={matched ? "success" : report.did_hifz ? "warning" : "secondary"}>
                           {matched ? "أكمل المقترح" : report.did_hifz ? "حفظ غير المقترح" : "لم يحفظ"}
@@ -224,22 +223,25 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
                   </CardHeader>
 
                   {/* Planned suggestion */}
-                  {assignmentByDate[report.report_date]?.hifz_surah && (
-                    <div className="flex items-center gap-1.5 px-4 pb-2 text-[11px] text-primary-600 dark:text-primary-400">
-                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                      <span className="font-semibold">المقترح:</span>
-                      <span>
-                        {formatRange({
-                          surah: assignmentByDate[report.report_date].hifz_surah!,
-                          fromAyah: assignmentByDate[report.report_date].hifz_from_ayah ?? 1,
-                          toAyah: assignmentByDate[report.report_date].hifz_to_ayah ?? 1,
-                        })}
-                      </span>
-                    </div>
-                  )}
+                  {(() => {
+                    const assignment = assignmentByDate[report.report_date]
+                    if (!assignment) return null
+                    const normAssign = normalizeHifzGlobals(assignment)
+                    const assignQr = normAssign.hifzStartGlobal != null && normAssign.hifzEndGlobal != null
+                      ? globalToQuran({ start: normAssign.hifzStartGlobal, end: normAssign.hifzEndGlobal })
+                      : null
+                    if (!assignQr) return null
+                    return (
+                      <div className="flex items-center gap-1.5 px-4 pb-2 text-[11px] text-primary-600 dark:text-primary-400">
+                        <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                        <span className="font-semibold">المقترح:</span>
+                        <span>{formatQuranRange(assignQr)}</span>
+                      </div>
+                    )
+                  })()}
 
                   <CardContent className="pt-2">
-                    <ReportSummary report={report as unknown as StructuredReport} />
+                    <ReportSummary report={report as Record<string, unknown> & { report_date: string }} />
                   </CardContent>
                 </Card>
               )

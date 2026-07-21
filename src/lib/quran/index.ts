@@ -62,3 +62,50 @@ export function isValidRange(range: {
     range.fromAyah <= range.toAyah
   )
 }
+
+// ── Multi-surah QuranRange helpers ───────────────────────────────────────────
+
+function surahName(n: number): string {
+  return getSurah(n)?.nameAr ?? `سورة ${n}`
+}
+
+/**
+ * Format a (possibly multi-surah) QuranRange as a single string.
+ * Same surah  → "البقرة: 135–141" (or "البقرة: 135" for a single ayah).
+ * Cross-surah → "الفاتحة 1 ← البقرة 5" (inline, for badges/compact contexts).
+ */
+export function formatQuranRange(range: {
+  startSurah: number
+  startAyah: number
+  endSurah: number
+  endAyah: number
+}): string {
+  if (range.startSurah === range.endSurah) {
+    const name = surahName(range.startSurah)
+    if (range.startAyah === range.endAyah) return `${name}: ${range.startAyah}`
+    return `${name}: ${range.startAyah}–${range.endAyah}`
+  }
+  return `${surahName(range.startSurah)} ${range.startAyah} ← ${surahName(range.endSurah)} ${range.endAyah}`
+}
+
+/**
+ * Validate a QuranRange. Both endpoints must be real ayahs (verse exists in its
+ * surah) and start must not come after end in mushaf order. Cross-surah,
+ * cross-juz and cross-hizb spans are all allowed — no single-surah restriction.
+ */
+export function isValidQuranRange(range: {
+  startSurah: number
+  startAyah: number
+  endSurah: number
+  endAyah: number
+}): boolean {
+  const startCount = ayahCount(range.startSurah)
+  const endCount = ayahCount(range.endSurah)
+  if (startCount === 0 || endCount === 0) return false
+  if (range.startAyah < 1 || range.startAyah > startCount) return false
+  if (range.endAyah < 1 || range.endAyah > endCount) return false
+  // start must be at or before end in global order
+  if (range.startSurah > range.endSurah) return false
+  if (range.startSurah === range.endSurah && range.startAyah > range.endAyah) return false
+  return true
+}

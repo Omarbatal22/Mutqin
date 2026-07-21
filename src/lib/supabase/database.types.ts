@@ -143,6 +143,8 @@ export type Database = {
           hifz_surah: number | null
           hifz_from_ayah: number | null
           hifz_to_ayah: number | null
+          hifz_start_global: number | null
+          hifz_end_global: number | null
           hifz_page: number | null
           hifz_mistakes: number
           hifz_notes: string | null
@@ -168,6 +170,8 @@ export type Database = {
           hifz_surah?: number | null
           hifz_from_ayah?: number | null
           hifz_to_ayah?: number | null
+          hifz_start_global?: number | null
+          hifz_end_global?: number | null
           hifz_page?: number | null
           hifz_mistakes?: number
           hifz_notes?: string | null
@@ -192,6 +196,8 @@ export type Database = {
           hifz_surah?: number | null
           hifz_from_ayah?: number | null
           hifz_to_ayah?: number | null
+          hifz_start_global?: number | null
+          hifz_end_global?: number | null
           hifz_page?: number | null
           hifz_mistakes?: number
           hifz_notes?: string | null
@@ -298,6 +304,8 @@ export type Database = {
           hifz_surah: number | null
           hifz_from_ayah: number | null
           hifz_to_ayah: number | null
+          hifz_start_global: number | null
+          hifz_end_global: number | null
           revision_ranges: Json
           source_frontier: number | null
           source_cursor: number | null
@@ -313,6 +321,8 @@ export type Database = {
           hifz_surah?: number | null
           hifz_from_ayah?: number | null
           hifz_to_ayah?: number | null
+          hifz_start_global?: number | null
+          hifz_end_global?: number | null
           revision_ranges?: Json
           source_frontier?: number | null
           source_cursor?: number | null
@@ -328,6 +338,8 @@ export type Database = {
           hifz_surah?: number | null
           hifz_from_ayah?: number | null
           hifz_to_ayah?: number | null
+          hifz_start_global?: number | null
+          hifz_end_global?: number | null
           revision_ranges?: Json
           source_frontier?: number | null
           source_cursor?: number | null

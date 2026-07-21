@@ -22,14 +22,21 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "النظام", icon: Monitor },
 ]
 
-export function ThemeToggle() {
-  const [theme, setTheme] = React.useState<Theme>("system")
+// External-store plumbing so we can read localStorage without a setState-in-effect.
+function subscribe(onChange: () => void) {
+  window.addEventListener("storage", onChange)
+  return () => window.removeEventListener("storage", onChange)
+}
+function getStored(): Theme {
+  return (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system"
+}
 
-  // Read the stored preference once mounted (matches the pre-paint script).
-  React.useEffect(() => {
-    const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system"
-    setTheme(stored)
-  }, [])
+export function ThemeToggle() {
+  // Read the stored preference from the external store; server snapshot is "system"
+  // (matches the pre-paint script), avoiding a hydration-triggered setState.
+  const stored = React.useSyncExternalStore(subscribe, getStored, () => "system" as Theme)
+  const [override, setOverride] = React.useState<Theme | null>(null)
+  const theme = override ?? stored
 
   // Keep "system" in sync with OS changes while that option is active.
   React.useEffect(() => {
@@ -41,7 +48,7 @@ export function ThemeToggle() {
   }, [theme])
 
   const choose = (next: Theme) => {
-    setTheme(next)
+    setOverride(next)
     localStorage.setItem(STORAGE_KEY, next)
     applyTheme(next)
   }

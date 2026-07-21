@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { CircleSwitcher } from "@/components/circle-switcher"
 import { WeeklyReportGrid } from "@/components/teacher/weekly-report-grid"
 import { ReportSummary } from "@/components/reports/report-summary"
-import type { StructuredReport } from "@/lib/reports/types"
-import { formatRange } from "@/lib/quran"
+import { formatQuranRange } from "@/lib/quran"
+import { globalToQuran } from "@/lib/progression/adapter"
+import { normalizeHifzGlobals } from "@/lib/reports/normalize"
 import {
   Users,
   CheckCircle2,
@@ -173,7 +174,7 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
   const { data: todayAssignments } = activeCircleId
     ? await supabase
         .from("daily_assignments")
-        .select("student_id, hifz_surah, hifz_from_ayah, hifz_to_ayah, revision_ranges, status")
+        .select("student_id, hifz_start_global, hifz_end_global, hifz_surah, hifz_from_ayah, hifz_to_ayah, revision_ranges, status")
         .eq("circle_id", activeCircleId)
         .eq("assignment_date", todayStr)
     : { data: [] }
@@ -456,22 +457,21 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
                         {/* Report preview or actions */}
                         <div className="flex flex-col sm:flex-row sm:items-start gap-4 text-xs">
                           <div className="flex flex-col gap-2">
-                            {/* Planned (assignment) */}
-                            {student.assignment && (
-                              <div className="flex items-start gap-1.5 text-[11px]">
-                                <Sparkles className="w-3.5 h-3.5 text-primary-500 mt-0.5 shrink-0" />
-                                <div className="text-stone-500 dark:text-stone-400">
-                                  <span className="font-semibold text-stone-600 dark:text-stone-300">مقترح: </span>
-                                  {student.assignment.hifz_surah
-                                    ? formatRange({
-                                        surah: student.assignment.hifz_surah,
-                                        fromAyah: student.assignment.hifz_from_ayah ?? 1,
-                                        toAyah: student.assignment.hifz_to_ayah ?? 1,
-                                      })
-                                    : "—"}
-                                </div>
-                              </div>
-                            )}
+                            {student.assignment && (() => {
+                               const norm = normalizeHifzGlobals(student.assignment)
+                               const qr = norm.hifzStartGlobal != null && norm.hifzEndGlobal != null
+                                 ? globalToQuran({ start: norm.hifzStartGlobal, end: norm.hifzEndGlobal })
+                                 : null
+                               return (
+                                 <div className="flex items-start gap-1.5 text-[11px]">
+                                   <Sparkles className="w-3.5 h-3.5 text-primary-500 mt-0.5 shrink-0" />
+                                   <div className="text-stone-500 dark:text-stone-400">
+                                     <span className="font-semibold text-stone-600 dark:text-stone-300">مقترح: </span>
+                                     {qr ? formatQuranRange(qr) : "—"}
+                                   </div>
+                                 </div>
+                               )
+                             })()}
 
                             {student.setupRequired && (
                               <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
@@ -483,10 +483,10 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
                             {student.submitted && student.reportDetails ? (
                               <div className="bg-stone-50 dark:bg-stone-900/50 px-4 py-3 rounded-xl border border-stone-200/50 dark:border-stone-850 text-stone-500 max-w-sm">
                                 <span className="font-semibold text-stone-700 dark:text-stone-300 block mb-0.5">تقرير اليوم:</span>
-                                <ReportSummary
-                                  report={student.reportDetails as unknown as StructuredReport}
-                                  variant="compact"
-                                />
+                                 <ReportSummary
+                                   report={student.reportDetails as Record<string, unknown> & { report_date: string }}
+                                   variant="compact"
+                                 />
                               </div>
                             ) : (
                               !student.setupRequired && (

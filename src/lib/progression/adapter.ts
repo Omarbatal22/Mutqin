@@ -1,35 +1,35 @@
-// Adapters between the app's surah/ayah AyahRange (used by the UI, daily_reports,
-// daily_assignments) and the engine's global-ayah-index GlobalRange.
+// Adapters between the app's multi-surah QuranRange (used by the UI,
+// daily_reports, daily_assignments) and the engine's global-ayah-index
+// GlobalRange. Both endpoints of a QuranRange carry their own surah, so
+// cross-surah spans convert losslessly in both directions.
 
 import { globalIndex, fromGlobal } from "../quran/structure"
 import { rubRange } from "../quran/structure-boundaries"
 import type { GlobalRange } from "./engine"
-import type { AyahRange } from "../reports/types"
+import type { QuranRange } from "../reports/types"
 
-/** AyahRange -> GlobalRange, or null if either endpoint is out of range. */
-export function toGlobalRange(r: AyahRange): GlobalRange | null {
-  const start = globalIndex(r.surah, r.fromAyah)
-  const end = globalIndex(r.surah, r.toAyah)
+/** QuranRange -> GlobalRange, or null if either endpoint is out of range. */
+export function quranToGlobal(r: QuranRange): GlobalRange | null {
+  const start = globalIndex(r.startSurah, r.startAyah)
+  const end = globalIndex(r.endSurah, r.endAyah)
   if (start == null || end == null) return null
   return { start: Math.min(start, end), end: Math.max(start, end) }
 }
 
 /**
- * GlobalRange -> AyahRange. When the range crosses a surah boundary the result
- * keeps the START surah and reports the ayah number within it for `fromAyah`; the
- * caller/label layer decides how to render multi-surah spans. For engine output
- * ranges (page/segment/rub) this is the common single-surah case.
+ * GlobalRange -> QuranRange. Each endpoint resolves to its own (surah, ayah),
+ * so a span crossing a surah boundary keeps distinct start/end surahs.
  */
-export function toAyahRange(r: GlobalRange): AyahRange | null {
+export function globalToQuran(r: GlobalRange): QuranRange | null {
   const a = fromGlobal(r.start)
   const b = fromGlobal(r.end)
   if (!a || !b) return null
-  if (a.surah === b.surah) {
-    return { surah: a.surah, fromAyah: a.ayah, toAyah: b.ayah }
+  return {
+    startSurah: a.surah,
+    startAyah: a.ayah,
+    endSurah: b.surah,
+    endAyah: b.ayah,
   }
-  // Cross-surah: represent as the start surah from its ayah to that surah's end.
-  // (Multi-surah display is handled separately; storage keeps start context.)
-  return { surah: a.surah, fromAyah: a.ayah, toAyah: b.ayah }
 }
 
 /** Global range spanning an inclusive rub-al-hizb (quarter) index span. */
