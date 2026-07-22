@@ -8,6 +8,9 @@ import { MemorizationSettingsSummary, type MemorizationSettings } from "@/compon
 import { formatQuranRange } from "@/lib/quran"
 import { globalToQuran } from "@/lib/progression/adapter"
 import { normalizeHifzGlobals } from "@/lib/reports/normalize"
+import { getStudentConsistency } from "@/lib/consistency/server"
+import { StreakBadge } from "@/components/consistency/streak-badge"
+import { WeeklyProgressWidget } from "@/components/consistency/weekly-progress"
 
 export const dynamic = "force-dynamic"
 
@@ -102,6 +105,8 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
   const totalMistakes = reports?.reduce((acc, curr) => acc + (curr.total_mistakes || 0), 0) || 0
   const averageMistakes = totalReports > 0 ? (totalMistakes / totalReports).toFixed(1) : 0
 
+  const consistencyStats = await getStudentConsistency(studentId, circleId)
+
   const joinDateFormatted = membership?.joined_at 
     ? new Date(membership.joined_at).toLocaleDateString("ar-EG", { year: 'numeric', month: 'long', day: 'numeric' })
     : "غير معروف"
@@ -151,7 +156,23 @@ export default async function StudentDetailsPage({ params }: StudentDetailsPageP
               <span className="text-xs text-stone-450 font-medium block">معدل الأخطاء/اليوم</span>
               <span className="text-2xl font-extrabold font-mono text-primary-650 mt-1">{averageMistakes}</span>
             </Card>
+
+          {/* Consistency Badge */}
+          <div className="w-full md:w-auto shrink-0">
+            <StreakBadge
+              currentStreak={consistencyStats.currentStreak}
+              monthlyConsistencyPct={consistencyStats.monthlyConsistencyPct}
+              graceAvailable={consistencyStats.graceAvailable}
+              variant="compact"
+              className="h-full justify-center"
+            />
           </div>
+        </div>
+
+        {/* Weekly Progress Widget for Student */}
+        <div className="mb-8">
+          <WeeklyProgressWidget week={consistencyStats.currentWeek} />
+        </div>
         </div>
 
         {/* Memorization system (hifz + revision) */}

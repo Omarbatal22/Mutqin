@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Plus,
+  BarChart3,
 } from "lucide-react"
 
 interface DashboardNavProps {
@@ -30,6 +31,7 @@ const teacherNav = [
 const studentNav = [
   { name: "لوحة الطالب", href: "/student/dashboard", icon: CheckSquare },
   { name: "أرسل تقرير", href: "/student/report", icon: Plus },
+  { name: "إحصائياتي", href: "/student/stats", icon: BarChart3 },
   { name: "سجل تقاريري", href: "/student/reports", icon: History },
   { name: "الملف الشخصي", href: "/profile", icon: User },
 ]

@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, Plus, Calendar } from "lucide-react"
 import { ReportSummary } from "@/components/reports/report-summary"
+import { getStudentConsistency, getCircleLocalDate } from "@/lib/consistency/server"
+import { StudentConsistencyContainer } from "@/components/consistency/student-consistency-container"
 
 interface DBMembershipCircle {
   circle_id: string
@@ -113,6 +115,19 @@ export default async function StudentDashboardPage() {
     .order("report_date", { ascending: false })
     .limit(5)) as unknown as { data: RecentReport[] | null }
 
+  // Fetch all report dates for consistency calculation
+  const { data: allUserReports } = await supabase
+    .from("daily_reports")
+    .select("report_date")
+    .eq("student_id", user?.id || "")
+
+  const submittedDates = Array.from(
+    new Set((allUserReports || []).map((r) => r.report_date))
+  ).sort()
+
+  const localTodayStr = getCircleLocalDate("Africa/Cairo")
+  const consistencyStats = await getStudentConsistency(user?.id || "")
+
   // Get formatted Hijri or Gregorian date
   const todayName = new Date().toLocaleDateString("ar-EG", { weekday: "long" })
   const todayFormatted = new Date().toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })
@@ -132,6 +147,14 @@ export default async function StudentDashboardPage() {
             <span>{todayName}، {todayFormatted}</span>
           </div>
         </div>
+
+        {/* Consistency Widget (Streak + Weekly Progress) */}
+        <StudentConsistencyContainer
+          initialStats={consistencyStats}
+          submittedDates={submittedDates}
+          todayStr={localTodayStr}
+          viewMode="dashboard"
+        />
 
         {/* Action Call: Submit Report */}
         <div className="flex flex-col gap-4">

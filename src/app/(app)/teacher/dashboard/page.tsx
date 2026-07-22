@@ -10,6 +10,8 @@ import { ReportSummary } from "@/components/reports/report-summary"
 import { formatQuranRange } from "@/lib/quran"
 import { globalToQuran } from "@/lib/progression/adapter"
 import { normalizeHifzGlobals } from "@/lib/reports/normalize"
+import { getCircleStudentsConsistency } from "@/lib/consistency/server"
+import { StreakBadge } from "@/components/consistency/streak-badge"
 import {
   Users,
   CheckCircle2,
@@ -97,6 +99,12 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
       return profile
     })
     .filter((p): p is DashboardProfile => !!p)
+
+  // Fetch batch consistency for all students in active circle
+  const studentIds = students.map((s) => s.id)
+  const consistencyMap = activeCircleId && studentIds.length > 0
+    ? await getCircleStudentsConsistency(activeCircleId, studentIds)
+    : {}
 
   // Fetch today's reports for this circle
   const { data: circle } = activeCircleId
@@ -452,6 +460,17 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
                               )}
                             </div>
                           </div>
+
+                          {/* Consistency Stats Badge for Teacher */}
+                          {consistencyMap[student.id] && (
+                            <StreakBadge
+                              currentStreak={consistencyMap[student.id].currentStreak}
+                              monthlyConsistencyPct={consistencyMap[student.id].monthlyConsistencyPct}
+                              graceAvailable={consistencyMap[student.id].graceAvailable}
+                              variant="compact"
+                              className="mr-2"
+                            />
+                          )}
                         </div>
 
                         {/* Report preview or actions */}
