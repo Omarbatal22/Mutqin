@@ -279,13 +279,18 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
             <div className="w-16 h-16 bg-primary-50 dark:bg-primary-950/20 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mb-4 border border-primary-200/50">
               <Layers className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-bold">لم تقم بإنشاء أي حلقة تحفيظ بعد</h2>
+            <h2 className="text-lg font-bold">ليس لديك أي حلقات نشطة بعد</h2>
             <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 max-w-sm">
-              قم بإنشاء حلقة تحفيظ أولاً لتستطيع إضافة طلابك ومتابعة تقاريرهم.
+              قم بإنشاء حلقة تحفيظ جديدة أو انضم كمعلم إلى حلقة بواسطة كود الانضمام.
             </p>
-            <Link href="/teacher/circles/create" className="mt-5">
-              <Button size="sm">إنشاء حلقة جديدة</Button>
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-5">
+              <Link href="/teacher/circles/create">
+                <Button size="sm">إنشاء حلقة جديدة</Button>
+              </Link>
+              <Link href="/teacher/join">
+                <Button size="sm" variant="outline">انضمام كمعلم لحلقة</Button>
+              </Link>
+            </div>
           </div>
         )}
 

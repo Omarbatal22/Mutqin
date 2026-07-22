@@ -19,7 +19,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   const { code } = await params
   const supabase = await createClient()
 
-  // Find the circle
+  // Find the circle by invite_code or teacher_invite_code
   const { data: circle, error: circleError } = await supabase
     .from("circles")
     .select(`
@@ -27,9 +27,10 @@ export default async function InvitePage({ params }: InvitePageProps) {
       name,
       description,
       invite_code,
+      teacher_invite_code,
       profiles:owner_id (full_name)
     `)
-    .eq("invite_code", code.toUpperCase())
+    .or(`invite_code.eq.${code.toUpperCase()},teacher_invite_code.eq.${code.toUpperCase()}`)
     .single()
 
   if (circleError || !circle) {
@@ -118,19 +119,33 @@ export default async function InvitePage({ params }: InvitePageProps) {
               <form action={async () => {
                 "use server"
                 const serverSupabase = await createClient()
-                const { data: { user } } = await serverSupabase.auth.getUser()
+                const { data: { user: currentUser } } = await serverSupabase.auth.getUser()
 
-                if (user) {
+                if (currentUser) {
+                  const isTeacherCode = circle.teacher_invite_code === code.toUpperCase()
+                  
+                  const { data: userProfile } = await serverSupabase
+                    .from("profiles")
+                    .select("preferred_role")
+                    .eq("id", currentUser.id)
+                    .single()
+
+                  const roleToAssign = isTeacherCode || userProfile?.preferred_role === "teacher" ? "teacher" : "student"
+
                   await serverSupabase
                     .from("circle_memberships")
                     .upsert({
                       circle_id: circle.id,
-                      user_id: user.id,
-                      role: "student",
+                      user_id: currentUser.id,
+                      role: roleToAssign,
                       status: "active"
                     }, { onConflict: "circle_id,user_id" })
 
-                  redirect("/student/dashboard")
+                  if (roleToAssign === "teacher") {
+                    redirect(`/teacher/dashboard?circleId=${circle.id}`)
+                  } else {
+                    redirect("/student/dashboard")
+                  }
                 }
               }} className="w-full">
                 <Button type="submit" className="w-full">

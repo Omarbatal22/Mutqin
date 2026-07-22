@@ -39,7 +39,7 @@ export default function JoinCirclePage() {
       const code = inviteCode.trim().toUpperCase()
       if (!code) return
 
-      // Fetch circle details
+      // Fetch circle details by invite_code or teacher_invite_code
       const { data: circleData, error: circleError } = await supabase
         .from("circles")
         .select(`
@@ -49,7 +49,7 @@ export default function JoinCirclePage() {
           owner_id,
           profiles:owner_id (full_name)
         `)
-        .eq("invite_code", code)
+        .or(`invite_code.eq.${code},teacher_invite_code.eq.${code}`)
         .single()
 
       if (circleError || !circleData) {

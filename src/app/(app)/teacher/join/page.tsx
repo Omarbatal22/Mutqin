@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { BookOpen, Users, CheckCircle, AlertCircle, ArrowRight } from "lucide-react"
+import { Users, AlertCircle, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 export const dynamic = "force-dynamic"
@@ -22,21 +22,28 @@ export default async function TeacherJoinPage({ searchParams }: JoinTeacherPageP
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  let circleToJoin: { id: string; name: string; owner_id: string } | null = null
+  let circleToJoin: { id: string; name: string; owner_id: string; isTeacherCode: boolean } | null = null
   let joinError: string | null = null
 
   if (code) {
     const cleanCode = code.trim().toUpperCase()
+
+    // Search teacher_invite_code OR invite_code
     const { data: circle } = await supabase
       .from("circles")
-      .select("id, name, owner_id")
-      .eq("teacher_invite_code", cleanCode)
+      .select("id, name, owner_id, teacher_invite_code, invite_code")
+      .or(`teacher_invite_code.eq.${cleanCode},invite_code.eq.${cleanCode}`)
       .single()
 
     if (circle) {
-      circleToJoin = circle
+      circleToJoin = {
+        id: circle.id,
+        name: circle.name,
+        owner_id: circle.owner_id,
+        isTeacherCode: circle.teacher_invite_code === cleanCode,
+      }
     } else {
-      joinError = "رمز انضمام المعلم غير صحيح أو عاطل"
+      joinError = "رمز الانضمام غير صحيح أو غير موجود."
     }
   }
 
@@ -52,31 +59,45 @@ export default async function TeacherJoinPage({ searchParams }: JoinTeacherPageP
     } = await serverSupabase.auth.getUser()
     if (!currentUser) redirect("/login")
 
+    // Search by teacher_invite_code OR invite_code
     const { data: targetCircle } = await serverSupabase
       .from("circles")
-      .select("id")
-      .eq("teacher_invite_code", inputCode)
+      .select("id, teacher_invite_code, invite_code")
+      .or(`teacher_invite_code.eq.${inputCode},invite_code.eq.${inputCode}`)
       .single()
 
     if (!targetCircle) {
       redirect(`/teacher/join?code=${inputCode}`)
     }
 
-    // Upsert membership as role: 'teacher'
-    const { error: joinErr } = await serverSupabase
+    const isTeacherCode = targetCircle.teacher_invite_code === inputCode
+
+    // Try joining as teacher first
+    const { error: teacherJoinErr } = await serverSupabase
       .from("circle_memberships")
       .upsert(
         {
           circle_id: targetCircle.id,
           user_id: currentUser.id,
-          role: "teacher",
+          role: isTeacherCode ? "teacher" : "teacher",
           status: "active",
         },
         { onConflict: "circle_id,user_id" }
       )
 
-    if (joinErr) {
-      redirect(`/teacher/join?code=${inputCode}`)
+    if (teacherJoinErr) {
+      // Fallback: upsert as student if teacher role constraint triggers
+      await serverSupabase
+        .from("circle_memberships")
+        .upsert(
+          {
+            circle_id: targetCircle.id,
+            user_id: currentUser.id,
+            role: "student",
+            status: "active",
+          },
+          { onConflict: "circle_id,user_id" }
+        )
     }
 
     redirect(`/teacher/dashboard?circleId=${targetCircle.id}`)
@@ -99,10 +120,10 @@ export default async function TeacherJoinPage({ searchParams }: JoinTeacherPageP
               <Users className="w-6 h-6" />
             </div>
             <CardTitle className="text-xl font-bold font-display">
-              الانضمام كمعلم إلى حلقة
+              الانضمام إلى حلقة
             </CardTitle>
             <CardDescription>
-              أدخل رمز انضمام المعلم الذي حصلت عليه من معلم الحلقة الرئيسي.
+              أدخل رمز الانضمام الذي حصلت عليه للانضمام للحلقة كمعلم مشارك.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -125,7 +146,7 @@ export default async function TeacherJoinPage({ searchParams }: JoinTeacherPageP
                 <form action={handleJoinTeacher}>
                   <input type="hidden" name="code" value={code} />
                   <Button variant="primary" className="w-full" type="submit">
-                    تأكيد الانضمام كمعلم لحلقة {circleToJoin.name}
+                    تأكيد الانضمام لحلقة {circleToJoin.name}
                   </Button>
                 </form>
               </div>
@@ -133,11 +154,11 @@ export default async function TeacherJoinPage({ searchParams }: JoinTeacherPageP
               <form action={handleJoinTeacher} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
-                    رمز انضمام المعلم (Teacher Invite Code)
+                    رمز انضمام الحلقة (Invite Code)
                   </label>
                   <Input
                     name="code"
-                    placeholder="مثال: TCH88K"
+                    placeholder="مثال: X7K82M"
                     required
                     className="font-mono text-center text-lg uppercase tracking-widest"
                   />
