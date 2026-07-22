@@ -131,7 +131,7 @@ export function DashboardNav({ role, userName = "المستخدم" }: DashboardN
       {/* Mobile Drawer Navigation Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-black/30 dark:bg-black/50 backdrop-blur-xs transition-opacity" onClick={() => setMobileMenuOpen(false)}>
-          <div className="w-64 max-w-[80vw] h-full bg-white dark:bg-[#1c1c1a] border-l border-stone-200 dark:border-stone-850 p-6 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-64 max-w-[80vw] h-full overflow-y-auto bg-white dark:bg-[#1c1c1a] border-l border-stone-200 dark:border-stone-850 p-6 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white">
                 <BookOpen className="w-4.5 h-4.5" />

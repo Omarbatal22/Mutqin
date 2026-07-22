@@ -19,21 +19,39 @@ export default async function TeacherCirclesPage() {
     .eq("id", user?.id || "")
     .single()
 
-  // Fetch circles owned by teacher, join with member count
-  const { data: circles } = await supabase
+  // Fetch co-teacher memberships
+  const { data: coTeacherMemberships } = await supabase
+    .from("circle_memberships")
+    .select("circle_id")
+    .eq("user_id", user?.id || "")
+    .eq("status", "active")
+    .in("role", ["teacher", "assistant"])
+
+  const coCircleIds = (coTeacherMemberships || []).map((m) => m.circle_id)
+
+  // Fetch circles owned by teacher OR where user is a co-teacher
+  let query = supabase
     .from("circles")
     .select(`
       id,
       name,
       description,
       invite_code,
+      teacher_invite_code,
+      owner_id,
       status,
       created_at
     `)
-    .eq("owner_id", user?.id || "")
-    .order("created_at", { ascending: false })
 
-  // For each circle, let's fetch members count
+  if (coCircleIds.length > 0) {
+    query = query.or(`owner_id.eq.${user?.id || ""},id.in.(${coCircleIds.join(",")})`)
+  } else {
+    query = query.eq("owner_id", user?.id || "")
+  }
+
+  const { data: circles } = await query.order("created_at", { ascending: false })
+
+  // For each circle, fetch members count
   const circlesWithCount = await Promise.all(
     (circles || []).map(async (circle) => {
       const { count } = await supabase
@@ -45,6 +63,7 @@ export default async function TeacherCirclesPage() {
 
       return {
         ...circle,
+        isOwner: circle.owner_id === user?.id,
         studentCount: count || 0,
       }
     })
@@ -57,14 +76,22 @@ export default async function TeacherCirclesPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold font-display">حلقاتي التعليمية</h1>
-            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">أنشئ وأدِر حلقات تحفيظ القرآن الكريم الخاصة بك</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">أنشئ وأدِر حلقات تحفيظ القرآن الكريم الخاصة بك أو انضم كمعلم مساعد</p>
           </div>
-          <Link href="/teacher/circles/create">
-            <Button className="flex items-center gap-2">
-              <Plus className="w-4.5 h-4.5" />
-              إنشاء حلقة جديدة
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/teacher/join">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                انضمام كمعلم لحلقة
+              </Button>
+            </Link>
+            <Link href="/teacher/circles/create">
+              <Button className="flex items-center gap-2">
+                <Plus className="w-4.5 h-4.5" />
+                إنشاء حلقة جديدة
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Circles Grid */}

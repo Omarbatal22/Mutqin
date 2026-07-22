@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { ArrowRight, QrCode, Copy, Trash2, Users, AlertCircle } from "lucide-react"
+import { ArrowRight, QrCode, Copy, Trash2, Users, AlertCircle, ShieldCheck } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +16,7 @@ interface DBProfile {
 interface DBMembership {
   id: string
   joined_at: string
+  role: string
   profiles: DBProfile | DBProfile[] | null
 }
 
@@ -27,18 +28,23 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
   const { id: circleId } = await params
   const supabase = await createClient()
 
-  // Get user session
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
   // Fetch circle details
   const { data: circle } = await supabase
     .from("circles")
-    .select("name, invite_code, owner_id")
+    .select("name, invite_code, teacher_invite_code, owner_id")
     .eq("id", circleId)
     .single()
 
-  // Verify ownership
-  if (!circle || circle.owner_id !== user?.id) {
+  if (!circle) redirect("/teacher/circles")
+
+  const isOwner = circle.owner_id === user.id
+
+  // Check if user is owner or active co-teacher
+  const { data: isTeacher } = await supabase.rpc("is_circle_teacher", { target_circle_id: circleId })
+  if (!isOwner && !isTeacher) {
     redirect("/teacher/circles")
   }
 
@@ -48,6 +54,7 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
     .select(`
       id,
       joined_at,
+      role,
       profiles:user_id (
         id,
         full_name,
@@ -55,21 +62,40 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
       )
     `)
     .eq("circle_id", circleId)
-    .eq("role", "student")
     .eq("status", "active")
     .order("joined_at", { ascending: true })
 
-  const students = (memberships as unknown as DBMembership[] || []).map((m) => {
-    const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-    if (!profile) return null
-    return {
-      membershipId: m.id,
-      joinedAt: m.joined_at,
-      id: profile.id,
-      full_name: profile.full_name,
-      preferred_role: profile.preferred_role
-    }
-  }).filter((s): s is NonNullable<typeof s> => s !== null)
+  const rawMembers = (memberships as unknown as DBMembership[] || [])
+
+  const students = rawMembers
+    .filter((m) => m.role === "student")
+    .map((m) => {
+      const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+      if (!profile) return null
+      return {
+        membershipId: m.id,
+        joinedAt: m.joined_at,
+        id: profile.id,
+        full_name: profile.full_name,
+        preferred_role: profile.preferred_role,
+      }
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+
+  const teachers = rawMembers
+    .filter((m) => m.role === "teacher" || m.role === "assistant")
+    .map((m) => {
+      const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+      if (!profile) return null
+      return {
+        membershipId: m.id,
+        joinedAt: m.joined_at,
+        id: profile.id,
+        full_name: profile.full_name,
+        role: m.role,
+      }
+    })
+    .filter((t): t is NonNullable<typeof t> => t !== null)
 
   // Define Server Action to remove a member
   async function removeMember(formData: FormData) {
@@ -78,16 +104,11 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
     if (!membershipId) return
 
     const serverSupabase = await createClient()
-    
-    // We update the status to 'removed' instead of hard delete to preserve history if needed,
-    // or we can hard delete if we want to clean up.
-    // Let's update status to 'removed' per PRD.
     await serverSupabase
       .from("circle_memberships")
       .update({ status: "removed" })
       .eq("id", membershipId)
 
-    // Redirect to refresh the server component state
     redirect(`/teacher/circles/${circleId}/members`)
   }
 
@@ -105,54 +126,112 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
           <div>
             <h1 className="text-2xl font-bold font-display flex items-center gap-2">
               <Users className="w-6 h-6 text-primary-650" />
-              إدارة طلاب حلقة: {circle.name}
+              إدارة أعضاء حلقة: {circle.name}
             </h1>
-            <p className="text-sm text-stone-500 mt-1">دعوة وإدارة أعضاء الحلقة، وعرض تاريخ انضمامهم</p>
+            <p className="text-sm text-stone-500 mt-1">دعوة وإدارة أعضاء الحلقة، وعرض المعلمين المساعدين والطلاب</p>
           </div>
         </div>
 
-        {/* Invite Code & Link Widget */}
-        <Card className="mb-8 border-primary-500/10 shadow-xs bg-white dark:bg-[#1c1c1a]">
+        {/* Student Invite Code & Link Widget */}
+        <Card className="mb-6 border-primary-500/10 shadow-xs bg-white dark:bg-[#1c1c1a]">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold flex items-center gap-1.5">
-              <QrCode className="w-5 h-5 text-primary-600" />
+            <CardTitle className="text-base font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-400">
+              <QrCode className="w-5 h-5 text-emerald-600" />
               دعوة طلاب جدد للحلقة
             </CardTitle>
-            <CardDescription>شارك الكود أو الرابط المباشر مع الطلاب لينضموا للحلقة تلقائياً</CardDescription>
+            <CardDescription>شارك الكود أو الرابط المباشر مع الطلاب لينضموا كـ طلاب في الحلقة</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-4.5 items-stretch pt-2">
-            {/* Invite Code display */}
+          <CardContent className="flex flex-col sm:flex-row gap-4 items-stretch pt-2">
             <div className="flex-1 bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-850 flex items-center justify-between gap-4">
               <div className="flex flex-col">
-                <span className="text-[10px] text-stone-400 font-bold uppercase">كود الدعوة</span>
+                <span className="text-[10px] text-stone-400 font-bold uppercase">كود دعوة الطلاب</span>
                 <span className="text-xl font-extrabold font-mono tracking-widest text-primary-700 dark:text-primary-400 mt-0.5">{circle.invite_code}</span>
               </div>
-              <button
-                // Standard copy logic (fallback inside client component can be implemented, but simple copy is fine)
-                className="p-2 text-stone-500 hover:text-stone-700 dark:text-stone-400 hover:bg-stone-100 rounded-lg"
-                title="نسخ الكود"
-              >
-                <Copy className="w-4.5 h-4.5" />
-              </button>
             </div>
 
-            {/* Invite link display */}
             <div className="flex-[2] bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-850 flex items-center justify-between gap-4">
               <div className="flex flex-col overflow-hidden w-full">
-                <span className="text-[10px] text-stone-400 font-bold uppercase">رابط الانضمام المباشر</span>
+                <span className="text-[10px] text-stone-400 font-bold uppercase">رابط انضمام الطلاب المباشر</span>
                 <span className="text-xs font-mono text-stone-500 truncate mt-1 text-left" dir="ltr">
                   /invite/{circle.invite_code}
                 </span>
               </div>
-              <button
-                className="p-2 text-stone-500 hover:text-stone-700 dark:text-stone-400 hover:bg-stone-100 rounded-lg flex-shrink-0"
-                title="نسخ الرابط"
-              >
-                <Copy className="w-4.5 h-4.5" />
-              </button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Teacher Invite Code & Link Widget */}
+        <Card className="mb-8 border-amber-500/20 shadow-xs bg-amber-50/20 dark:bg-amber-950/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-400">
+              <ShieldCheck className="w-5 h-5 text-amber-600" />
+              دعوة معلمين مساعدين للحلقة
+            </CardTitle>
+            <CardDescription>شارك هذا الكود الخاص مع المعلمين للانضمام كـ معلمين في هذه الحلقة</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-4 items-stretch pt-2">
+            <div className="flex-1 bg-white dark:bg-stone-900 p-4 rounded-xl border border-amber-200/50 dark:border-amber-900/30 flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase">كود دعوة المعلم</span>
+                <span className="text-xl font-extrabold font-mono tracking-widest text-amber-700 dark:text-amber-400 mt-0.5">{circle.teacher_invite_code}</span>
+              </div>
+            </div>
+
+            <div className="flex-[2] bg-white dark:bg-stone-900 p-4 rounded-xl border border-amber-200/50 dark:border-amber-900/30 flex items-center justify-between gap-4">
+              <div className="flex flex-col overflow-hidden w-full">
+                <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase">رابط انضمام المعلم المباشر</span>
+                <span className="text-xs font-mono text-amber-700 dark:text-amber-400 truncate mt-1 text-left" dir="ltr">
+                  /teacher/join?code={circle.teacher_invite_code}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Teachers list */}
+        {teachers.length > 0 && (
+          <Card className="shadow-xs mb-8">
+            <CardHeader className="pb-3 border-b border-stone-100 dark:border-stone-900/50">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-500" />
+                المعلمون المساعدون ({teachers.length})
+              </CardTitle>
+              <CardDescription>المعلمون المشاركون في متابعة تقارير هذه الحلقة</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-stone-100 dark:divide-stone-900">
+                {teachers.map((teacher) => (
+                  <div key={teacher.id} className="flex items-center justify-between p-5 gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded-full flex items-center justify-center font-bold text-sm">
+                        {teacher.full_name.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{teacher.full_name}</h4>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-500 font-semibold block mt-0.5">معلم مساعد</span>
+                      </div>
+                    </div>
+
+                    {isOwner && (
+                      <form action={removeMember}>
+                        <input type="hidden" name="membershipId" value={teacher.membershipId} />
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-650 hover:bg-red-50 dark:hover:bg-red-950/10 px-2 py-2"
+                          title="إزالة المعلم المساعد"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" />
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Student list */}
         <Card className="shadow-xs">
@@ -181,7 +260,9 @@ export default async function CircleMembersPage({ params }: CircleMembersPagePro
                           {student.full_name.charAt(0)}
                         </div>
                         <div>
-                          <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{student.full_name}</h4>
+                          <Link href={`/teacher/circles/${circleId}/students/${student.id}`} className="font-bold text-sm text-stone-900 dark:text-stone-100 hover:text-primary-650 dark:hover:text-primary-400 transition-colors">
+                            {student.full_name}
+                          </Link>
                           <span className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5 block">انضم في {joinedDate}</span>
                         </div>
                       </div>

@@ -109,11 +109,36 @@ export default function SubmitReportForm({
   const [revisionNotes, setRevisionNotes] = React.useState(report?.revision_notes ?? "")
 
   // Listener
-  const [listenerType, setListenerType] = React.useState<ListenerType>(
-    report?.listener_type ?? "teacher",
-  )
-  const [listenerUserId, setListenerUserId] = React.useState(report?.listener_user_id ?? "")
-  const [listenerName, setListenerName] = React.useState(report?.listener_name ?? "")
+  const [listenerType, setListenerType] = React.useState<ListenerType>(() => {
+    if (report?.listener_type) return report.listener_type
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("mutqin_last_listener_type")
+        if (saved && (saved === "teacher" || saved === "peer" || saved === "other" || saved === "none")) {
+          return saved as ListenerType
+        }
+      } catch {}
+    }
+    return "teacher"
+  })
+  const [listenerUserId, setListenerUserId] = React.useState(() => {
+    if (report?.listener_user_id) return report.listener_user_id
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("mutqin_last_listener_user_id") || ""
+      } catch {}
+    }
+    return ""
+  })
+  const [listenerName, setListenerName] = React.useState(() => {
+    if (report?.listener_name) return report.listener_name
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("mutqin_last_listener_name") || ""
+      } catch {}
+    }
+    return ""
+  })
 
   // Notes
   const [notes, setNotes] = React.useState(report?.notes ?? "")
@@ -178,6 +203,14 @@ export default function SubmitReportForm({
         weekReference: weekRef,
       })
       if (!result.success) throw new Error(result.error)
+
+      // Save last selected listener to localStorage for future default
+      try {
+        localStorage.setItem("mutqin_last_listener_type", listenerType)
+        if (listenerUserId) localStorage.setItem("mutqin_last_listener_user_id", listenerUserId)
+        if (resolvedListenerName) localStorage.setItem("mutqin_last_listener_name", resolvedListenerName)
+      } catch {}
+
       setSuccess(true)
       router.refresh()
     } catch (err) {

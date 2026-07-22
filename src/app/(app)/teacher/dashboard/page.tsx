@@ -450,7 +450,9 @@ export default async function TeacherDashboardPage({ searchParams }: TeacherDash
                             {student.full_name.charAt(0)}
                           </div>
                           <div>
-                            <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{student.full_name}</h4>
+                            <Link href={`/teacher/circles/${activeCircleId}/students/${student.id}`} className="font-bold text-sm text-stone-900 dark:text-stone-100 hover:text-primary-650 dark:hover:text-primary-400 transition-colors">
+                              {student.full_name}
+                            </Link>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant={student.submitted ? "success" : "warning"}>
                                 {student.submitted ? "أرسل التقرير" : "لم يرسل بعد"}

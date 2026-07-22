@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { User, Mail, Shield, Check, BookOpen } from "lucide-react"
+import { User, Mail, Shield, Check, BookOpen, LogOut } from "lucide-react"
 import {
   MemorizationSettingsSummary,
   type MemorizationSettings,
@@ -35,6 +35,12 @@ export default function ProfilePage() {
 
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push("/login")
+    router.refresh()
+  }
 
   React.useEffect(() => {
     async function loadProfile() {
@@ -245,6 +251,19 @@ export default function ProfilePage() {
             ))}
           </div>
         )}
+
+        {/* Logout button at bottom of Profile page */}
+        <div className="mt-8 pt-6 border-t border-stone-200 dark:border-stone-850">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2 border-red-200 dark:border-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 font-bold py-3"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4 text-red-500" />
+            تسجيل الخروج من الحساب
+          </Button>
+        </div>
       </div>
     </>
   )
